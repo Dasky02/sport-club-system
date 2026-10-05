@@ -1,4 +1,4 @@
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 LABEL org.opencontainers.image.title="sport-club-system backend"
 WORKDIR /app/backend
 COPY backend/pom.xml backend/mvnw backend/mvnw.cmd ./
