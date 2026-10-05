@@ -1,6 +1,5 @@
 # Spolupráce v týmu
 
-Pracujeme pouze v samostatném `sport-club-system`. Původní `petrsafrata/Spring-project-template` je zdrojová šablona; neměňte její kód, historii ani nastavení.
 
 1. Vytvořte krátkou větev z `main`, např. `feat/team-memberships`.
 2. Doménový návrh a akceptaci hledejte v `docs/requirements.md` a `docs/roadmap.md`.
