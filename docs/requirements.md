@@ -48,7 +48,7 @@ Zdroj: uživatelem dodané `zadani_sportovni_klub_v2.odt` („Zadání semestrá
 
 | ID | Upřesnění | Řešení / hranice |
 | --- | --- | --- |
-| U01 | Template pouze zdroj, žádný commit/push/nastavení/viditelnost původního repozitáře | Práce výhradně v novém `sport-club-system`, vlastní Git historie; původ a licence zachované. Publikování nového repo je samostatný závěrečný krok po kontrole obsahu. |
+| U01 | Template pouze zdroj, žádný commit/push/nastavení/viditelnost původního repozitáře | Práce výhradně v novém `sport-club-system`, vlastní Git historie; původ a licence zachované. Nový [veřejný repozitář](https://github.com/Dasky02/sport-club-system) byl publikován jako samostatný závěrečný krok po kontrole obsahu. |
 | U02 | Zachovat vhodnou architekturu a implementace šablony | Vrstvy, package, UUID User/BCrypt, UserRepository/UserService, AuthController/records, error handler, info/OpenAPI, wrapper, PostgreSQL/Testcontainers; cílené opravy místo paralelní autentizace. |
 | U03 | Převod Vite do Next.js; nový monorepo základ | `backend/`, `frontend/`, Docker/CI/cache paths a VERSION; nepoužívat Vite/Apache ani browser URL s Docker hostname. |
 | U04 | Dynamické statistiky s validací a agregací | Verze definice, typed hodnoty, seznam povolených agregací, null/zero pravidla a historická kompatibilita v [modelu](domain-model.md). |

@@ -16,9 +16,11 @@ Backend používá Spring Boot 4.0.3 a springdoc 3.0.3 podle [oficiální kompat
 
 ## Od čistého klonu: lokální vývoj
 
-Po zveřejnění klonujte **nový** repozitář svého týmu a přejděte do jeho kořene. Zdrojový privátní template se pro vývoj tohoto projektu neklonuje.
+Veřejný týmový repozitář je [Dasky02/sport-club-system](https://github.com/Dasky02/sport-club-system). Klonujte jej a přejděte do jeho kořene:
 
 ```sh
+git clone https://github.com/Dasky02/sport-club-system.git
+cd sport-club-system
 cp .env.example .env
 cp frontend/.env.example frontend/.env.local
 ```
@@ -98,4 +100,4 @@ Doporučený postup: krátké větve, PR, alespoň jedno schválení kolegou a p
 
 Backend a API klient vycházejí z `petrsafrata/Spring-project-template`, commit `32dded5e33b83f038655199eb81044fa3d4c66a8`. Zachovány jsou vrstvy a Java package šablony, User/UserRepository/UserService, DTO records, handler chyb, InfoController/InfoService/OpenApiConfig, Maven Wrapper, PostgreSQL a Testcontainers. Přehled cílených úprav je v [NOTICE](NOTICE) a dokumentaci. [LICENSE](LICENSE) včetně původního oznámení Petr Šafrata je zachována.
 
-Nový repozitář vzniká bez původní Git historie a bez privátních `.env` souborů. Původní privátní repozitář nebyl upraven. Publikování nového repozitáře a jeho veřejná viditelnost jsou odděleným závěrečným krokem po kontrole obsahu.
+Nový veřejný repozitář má vlastní Git historii a neobsahuje privátní `.env` soubory šablony. Publikování proběhlo po kontrole připraveného obsahu. Původní privátní repozitář nebyl upraven. Výsledky automatických kontrol jsou v [GitHub Actions](https://github.com/Dasky02/sport-club-system/actions/workflows/ci.yml).

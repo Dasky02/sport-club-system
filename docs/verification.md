@@ -39,10 +39,10 @@ Testy vytvářejí jedinečné smyšlené účty; spouštějte je nad vývojový
 ## Známé limity a neprovedené kontroly
 
 - **Produkční npm audit: 0 známých zranitelností. Celý audit: 5 high položek v dev řetězci Next ESLint → braces**, jedna neopravená chyba se závislými balíčky. Advisory a řetězec jsou v [frontend README](../frontend/README.md). Není to čistý audit všech závislostí; prod standalone tento řetězec neobsahuje.
-- **GitHub CI/release/GHCR dosud nespouštěny na GitHubu.** Místní kontroly odpovídající CI a syntaktický actionlint prošly. Žádný release, image push nebo změna repository settings není vydávána za hotovou.
+- **GitHub CI spuštěno při publikaci** do [Dasky02/sport-club-system](https://github.com/Dasky02/sport-club-system); aktuální stav jednotlivých commitů je v [Actions](https://github.com/Dasky02/sport-club-system/actions/workflows/ci.yml). Místní kontroly odpovídající CI a syntaktický actionlint prošly. **Release a GHCR dosud nespouštěny**: publikování zdrojového repozitáře nevydalo release ani nenahrálo images.
 - **Veřejné produkční HTTPS/ACME nasazení s vlastní doménou neproběhlo.** HTTPS je konfigurované a lokálně ověřené, nikoli živě veřejně nasazené. Produkční DNS/porty/certifikát a cookies tým ověří dle [deployment](deployment.md).
 - **Záloha/obnova nebyla provozně provedena.** Postup je dokumentovaný, finální akceptace musí ověřit obnovitelnost skutečné zálohy.
 - **Doménové funkce ani doménové akceptační scénáře zatím neimplementované/neprovedené.** Dva sporty, admin statistiky/tabulky, týmy, události/účast, rodičovské vazby, finance, notifikace, messaging a historie jsou konkrétní návrh a povinné další etapy. Přehled v [requirements](requirements.md) a [roadmap](roadmap.md).
-- Statický credential check je kontrola známých patternů a souborů, ne záruka neexistence libovolné tajné hodnoty. Před veřejným publikováním zkontrolovat finální Git obsah; žádné skutečné env hodnoty se do repozitáře nepřevzaly.
+- Statický credential check je kontrola známých patternů a souborů, ne záruka neexistence libovolné tajné hodnoty. Před veřejným publikováním byl finální Git obsah zkontrolovaný; žádné skutečné env hodnoty se do repozitáře nepřevzaly. Kontrola se opakuje v CI.
 
-Publikování nového repozitáře a jeho veřejná viditelnost zůstávají samostatným závěrečným krokem podle zadání. Původní privátní template není cílem žádné write operace.
+Nový [veřejný repozitář](https://github.com/Dasky02/sport-club-system) byl vytvořen a nahrán po kontrole obsahu na výslovnou žádost uživatele. GitHub uvádí PUBLIC, isFork=false a výchozí větev main; historie začíná vlastním root commitem. Původní privátní template nebyl cílem žádné write operace.
