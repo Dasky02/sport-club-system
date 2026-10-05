@@ -1,0 +1,11 @@
+sport-club-system
+
+This project contains code derived from petrsafrata/Spring-project-template,
+commit 32dded5e33b83f038655199eb81044fa3d4c66a8.
+Original copyright: Copyright [2025] [Petr Šafrata].
+The original Apache License 2.0 text and notice are retained in LICENSE.
+
+The derived project changes authentication security, configuration and tests,
+organizes the backend in backend/, replaces Vite with Next.js, and adds
+sport club domain planning and team documentation. It has an independent
+Git history and does not include the private template's history or env files.

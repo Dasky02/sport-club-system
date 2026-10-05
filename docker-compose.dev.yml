@@ -1,0 +1,19 @@
+name: sport-club-system-dev
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sport_club}
+      POSTGRES_USER: ${POSTGRES_USER:-sport_club}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Create .env from .env.example and set a password}
+    ports:
+      - '127.0.0.1:${DB_HOST_PORT:-5432}:5432'
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  postgres-dev-data:

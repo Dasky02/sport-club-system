@@ -1,0 +1,65 @@
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { expect, test } from "@playwright/test";
+
+const appVersion = readFileSync(new URL("../../VERSION", import.meta.url), "utf8").trim();
+const apiUrl = process.env.E2E_API_URL ?? "http://localhost:8080/api";
+
+test("reálné API, registrace, login, session refresh a logout", async ({ page }, testInfo) => {
+  const username = "e2e-" + randomUUID();
+  const password = "E2e-test-password-2026";
+  await page.goto("/");
+  await expect(page.getByText("API je dostupné", { exact: true })).toBeVisible();
+  await expect(page.getByText(appVersion, { exact: true })).toBeVisible();
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Pro přístup se přihlaste." })).toBeVisible();
+  await page.goto("/register");
+  await page.getByLabel("Uživatelské jméno").fill(username);
+  await page.getByLabel("Heslo", { exact: true }).fill(password);
+  await page.getByLabel("Heslo znovu").fill(password);
+  await page.getByRole("button", { name: "Vytvořit účet" }).click();
+  await expect(page.getByRole("heading", { name: "Účet je připravený." })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("rolí USER");
+  await page.getByRole("link", { name: "Přejít k přihlášení" }).click();
+  await page.getByLabel("Uživatelské jméno").fill(username);
+  await page.getByLabel("Heslo", { exact: true }).fill("incorrect-password");
+  await page.getByRole("button", { name: "Přihlásit se" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Přihlášení se nezdařilo" })).toBeVisible();
+  const anonymousId = (await page.context().cookies(apiUrl)).find(cookie => cookie.name === "JSESSIONID")?.value;
+  await page.getByLabel("Heslo", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Přihlásit se" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "Ahoj, " + username + "." })).toBeVisible();
+  const cookie = (await page.context().cookies(apiUrl)).find(item => item.name === "JSESSIONID");
+  expect(cookie?.value).toBeTruthy();
+  expect(cookie?.value).not.toBe(anonymousId);
+  expect(cookie?.httpOnly).toBe(true);
+  expect(cookie?.sameSite).toBe("Lax");
+  expect(cookie?.path).toBe("/api");
+  expect(cookie?.secure).toBe(apiUrl.startsWith("https://"));
+  const me = await page.request.get(apiUrl + "/auth/me");
+  expect(me.status()).toBe(200);
+  expect(await me.json()).toMatchObject({ username, role: "USER" });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Ahoj, " + username + "." })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("dashboard.png"), fullPage: true });
+  await page.getByRole("button", { name: "Odhlásit se" }).click();
+  await expect(page.getByRole("heading", { name: "Pro přístup se přihlaste." })).toBeVisible();
+  expect((await page.context().cookies(apiUrl)).find(item => item.name === "JSESSIONID")).toBeUndefined();
+  expect((await page.request.get(apiUrl + "/auth/me")).status()).toBe(401);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Pro přístup se přihlaste." })).toBeVisible();
+});
+
+test("výpadek API má odlišný stav od nepřihlášené session", async ({ page }) => {
+  await page.route(apiUrl + "/**", route => route.abort("failed"));
+  await page.goto("/");
+  await expect(page.getByText("API není dostupné", { exact: true })).toBeVisible();
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Session se nepodařilo ověřit." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pro přístup se přihlaste." })).not.toBeVisible();
+  await page.unroute(apiUrl + "/**");
+  await page.getByRole("button", { name: "Zkusit znovu" }).click();
+  await expect(page.getByRole("heading", { name: "Pro přístup se přihlaste." })).toBeVisible();
+});
