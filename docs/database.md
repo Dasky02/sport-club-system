@@ -1,8 +1,8 @@
 # Databáze sportovního klubu
 
-Databáze je navržena pro PostgreSQL 16. Jedna instalace spravuje jeden klub a jeden týmový sport. Model obsahuje 31 tabulek. Schéma je popsáno v [DBML](sport-club.dbml) a funkční rozsah vychází ze [zadání v2](../zadani_sportovni_klub_v2.md).
+Návrh pro PostgreSQL 16 obsahuje 31 tabulek. Jedna instalace spravuje jeden klub a jeden týmový sport. Schéma je v [DBML](sport-club.dbml), funkční rozsah v [zadání v2](../zadani_sportovni_klub_v2.md).
 
-Jde o logický návrh. V aplikaci je zatím připravený pouze technický základ; databázové migrace a klubové funkce dosud nejsou implementované.
+Sport klubu, formáty zápasů, bodování, kritéria pořadí a definice statistik nastavuje administrátor výhradně v administračním rozhraní. Nastavení nesmí vyžadovat změnu kódu, ruční SQL, úpravu schématu ani sportovní seed skript. Jde o ukládání konfigurace do existujících tabulek přes backend. Použitá pravidla zůstávají chráněná kvůli historii; nová pravidla administrátor vytvoří jako nový formát, ročník nebo definici.
 
 ## Přehled tabulek
 
@@ -15,8 +15,8 @@ Jde o logický návrh. V aplikaci je zatím připravený pouze technický zákla
 | `club`                         | Klub a sport dané instalace.                                 |
 | `seasons`                      | Sezóny a jejich archivace.                                   |
 | `teams`                        | Klubové týmy a externí soupeři.                              |
-| `team_seasons`                 | Tým v konkrétní sezóně, včetně tehdejšího názvu a kategorie. |
-| `player_team_memberships`      | Časově platná členství hráčů v týmech a čísla dresů.         |
+| `team_seasons`                 | Tým v konkrétní sezóně s tehdejším názvem.                   |
+| `player_team_memberships`      | Časově platná členství hráčů v týmech.                       |
 | `coach_team_memberships`       | Časově platná přiřazení trenérů k týmům.                     |
 | `events`                       | Tréninky, zápasy a další akce.                               |
 | `event_teams`                  | Týmy přiřazené k akci.                                       |
@@ -42,23 +42,26 @@ Jde o logický návrh. V aplikaci je zatím připravený pouze technický zákla
 
 ## Osoby, účty a oprávnění
 
-Osobní údaje se ukládají do `persons`. Jedna osoba může mít nejvýše jeden účet (`users`) a jeden hráčský profil (`player_profiles`); oba používají jedinečné `person_id`. Hráčský profil nevyžaduje účet, takže lze evidovat i dítě, které se samo nepřihlašuje. Osoba s hráčským profilem musí mít datum narození. Propojení použitých účtů a profilů s jinou osobou není dovoleno.
+`persons` obsahuje osobní údaje. Jedna osoba může mít nejvýše jeden účet (`users`) a jeden hráčský profil (`player_profiles`), propojené jedinečným `person_id`. Hráč, například dítě, nemusí mít účet. Musí však mít datum narození. Použitý účet ani profil nelze přiřadit jiné osobě.
 
-V `users` se ukládá pouze systémová role `USER` nebo `ADMIN`. Ostatní oprávnění vyplývají z aktuálních vztahů:
+Aplikace rozlišuje čtyři klubové role ze zadání: **administrátor, trenér, hráč a rodič nebo zákonný zástupce**. V databázi jsou vyjádřené takto:
 
+- **Administrátor** má v `users.role` hodnotu `ADMIN`.
 - **Trenér** má platné přiřazení v `coach_team_memberships`.
 - **Hráč** má vlastní hráčský profil a odpovídající členství v týmu.
 - **Rodič nebo zástupce** má schválenou vazbu v `guardian_links`.
 
-Tyto vztahy se mohou kombinovat. Trenér tedy může být současně rodičem nebo administrátorem. Trenérské oprávnění samo o sobě neumožňuje přístup k finančním údajům hráče; k údajům vlastního dítěte je potřeba samostatná rodičovská vazba. Uživatel bez klubových vztahů nemá přístup k týmovým údajům. Účet může vidět vlastní příspěvky.
+Sloupec `users.role` rozlišuje systémové role `USER` a `ADMIN`. Trenérská, hráčská a rodičovská oprávnění se vyhodnocují z uvedených vazeb pro konkrétní tým nebo dítě. Administrátor role a vazby spravuje v administračním rozhraní.
+
+Vztahy se mohou kombinovat: trenér může být také rodičem nebo administrátorem. K financím dítěte potřebuje rodičovskou vazbu; trenérské přiřazení nestačí. Uživatel bez klubových vztahů nevidí týmové údaje, ale může číst vlastní příspěvky.
 
 Rodičovské vazby schvaluje administrátor a lze je odvolat. Odvolání ukončí oprávnění k dítěti, pokud neexistuje jiný platný důvod přístupu.
 
-Dosavadní technický základ aplikace používá role `USER`, `ADMIN`, `COACH`, `PLAYER` a `PARENT`. Při implementaci bude potřeba přejít na nový způsob autorizace. Současnou databázovou migraci ani přihlašování tento návrh nemění. Přístup se vždy vyhodnocuje podle aktuální role, vztahů a stavu záznamu; podrobnosti jsou v [autorizaci](authorization.md).
+Skeleton používá role `USER`, `ADMIN`, `COACH`, `PLAYER` a `PARENT`. Přechod na oprávnění z vazeb vyžaduje novou migraci. Podmínky přístupu podle aktuální role, vztahů a stavu záznamu popisuje [autorizace](authorization.md).
 
 ## Týmy a sezóny
 
-`club` má jediný řádek s `id = 1`. Sport je pro danou instalaci pevně zvolený; další sport vyžaduje samostatnou instalaci. Klubové a externí týmy jsou v `teams`, jejich podobu v konkrétní sezóně zachovává `team_seasons`. Dvojice `(team_id, season_id)` je jedinečná.
+`club` má jediný řádek s `id = 1`. Sport je pro danou instalaci pevně zvolený; další sport vyžaduje samostatnou instalaci. Sport pojmenovává `club.sport_name`; výpočty používají formát zápasu a pravidla ročníku. Klubové a externí týmy jsou v `teams`. `team_seasons.display_name` uchovává název týmu v dané sezóně, takže pozdější přejmenování týmu nepřepíše staré výsledky. Dvojice `(team_id, season_id)` je jedinečná. Zařazení do sezóny a intervaly členství určují, které týmy a hráči do ní patří; samostatný příznak `active` u týmu a hráče se nevede.
 
 Hráčská i trenérská členství mají interval `[valid_from, valid_to)`. Neuvedené `valid_to` znamená konec sezóny. Překrývající se intervaly stejné dvojice hráč/tým nebo trenér/tým zakáže omezení `EXCLUDE` v PostgreSQL (`btree_gist`). Členství různých týmů téhož hráče se překrývat mohou.
 
@@ -68,7 +71,7 @@ Sezóna používá interval `[starts_on, ends_on)` v časové zóně `Europe/Pra
 
 `events` obsahuje společné údaje pro trénink, zápas i jinou akci. Sezónní týmy akce jsou v `event_teams`. Tabulka `event_participants` má primární klíč `(event_id, player_id)`, takže hráč je na jedné akci veden nejvýše za jeden tým. Tým účastníka musí být přiřazený k akci.
 
-Dostupnost, nominace, docházka a nastoupení jsou čtyři samostatné skupiny sloupců v `event_participants`. Každá má vlastní stav, autora a čas změny. Databázová kontrola vyžaduje, aby byla skupina buď celá vyplněná, nebo celá prázdná. Prázdná hodnota (`NULL`) znamená, že údaj nebyl zapsán. Hodnoty `UNKNOWN`, `NOT_SELECTED` a `played = false` naopak představují výslovný záznam.
+Dostupnost, nominace, docházka a nastoupení mají v `event_participants` vlastní stav, autora a čas změny. `CHECK` vyžaduje všechny tři hodnoty společně, nebo žádnou. `NULL` znamená nezapsaný údaj; `UNKNOWN`, `NOT_SELECTED` a `played = false` jsou výslovné odpovědi.
 
 Pravidla zápisu:
 
@@ -78,11 +81,11 @@ Pravidla zápisu:
 - `played` se používá jen u zápasů. Hodnota `true` vyžaduje docházku `PRESENT` nebo `LATE` a tým účastníka musí být jednou ze stran zápasu.
 - Zrušené akce nepřijímají běžné sportovní zápisy. Koncepty nevidí hráči ani rodiče.
 
-Každá změna upravuje pouze povolenou skupinu polí, nikoli celý řádek převzatý z formuláře. Čas a autor se doplní na serveru. Společná hodnota `version` chrání před přepsáním změn ze zastaralého formuláře. Při zveřejnění nominace a při její následné změně vznikne také oznámení.
+Požadavek smí měnit jen povolenou skupinu polí. Autora a čas doplní server; `version` chrání řádek před přepsáním zastaralým formulářem. Zveřejnění nominace a její pozdější změny vytvoří oznámení.
 
 ### Soupisky, přestupy a změny termínů
 
-Při založení nebo zveřejnění akce se účastníci výslovně vytvoří ze soupisky platné k jejímu začátku. Nejde o živý pohled: příchod nového hráče do týmu automaticky nepřepisuje účastníky již vytvořených akcí. Pokud má hráč více platných členství, vybere se pro akci jeden tým.
+Při založení nebo zveřejnění akce se účastníci vytvoří ze soupisky platné k jejímu začátku. Pozdější příchod hráče do týmu je automaticky nepřidá. Hráči s více členstvími se pro akci vybere jeden tým.
 
 Budoucího účastníka lze před začátkem akce vyřadit pomocí `withdrawn_at` a důvodu. Nesmí už mít zapsanou docházku, nastoupení ani statistiky. Odpověď a nominace zůstanou uložené kvůli historii, ale účastník se dále nepovažuje za aktivního. Pokud už byla nominace zveřejněná, změna se oznámí. Prázdný záznam budoucí účasti lze také odstranit. Vrácení vyřazeného účastníka je možné jen jako odůvodněná administrátorská oprava.
 
@@ -107,7 +110,7 @@ Formát určuje povolení remízy, případnou povinnost evidovat části, jejic
 
 Bodování a řazení tabulky patří konkrétnímu `competition_seasons`, nikoli formátu. Soutěžní zápas musí použít stejný formát jako jeho ročník. Přátelský zápas si formát určuje přímo a nepotřebuje bodovací pravidla soutěže.
 
-Při uložení první části nebo úplného výsledku se nastaví `match_formats.locked_at` a u soutěžního zápasu také `competition_seasons.locked_at`. Použitý formát, bodování a kritéria pořadí se pak nemění ani při opravě či odstranění výsledku. Pro odlišná pravidla se vytvoří nový formát nebo nový ročník. Kosmetické přejmenování zobrazení historie neovlivní výpočty.
+První část nebo úplný výsledek nastaví `match_formats.locked_at` a u soutěžního zápasu také `competition_seasons.locked_at`. Formát, bodování a kritéria pořadí pak nelze změnit ani po opravě či odstranění výsledku. Jiná pravidla vyžadují nový formát nebo ročník. Přejmenování je povolené, výpočty nemění.
 
 ### Výsledek a části zápasu
 
@@ -140,15 +143,15 @@ Příklady konfigurace:
 | Hokej     | `SUM_SCORE`, tři třetiny, prodloužení a nájezdy.               | V základní době 3/0, po prodloužení či nájezdech 2/1.                      |
 | Volejbal  | `WON_PARTS`, vítězství po třech vyhraných setech.              | Výhra 3:0 nebo 3:1 za 3 body, 3:2 za 2; prohra 2:3 za 1 bod, ostatní za 0. |
 
-Volejbalové bodování rozlišuje výsledky podle počtu setů soupeře. Výpočet se neřídí názvem sportu, ale uloženým formátem a bodovacími pravidly.
+Výpočty používají uložený formát a bodovací pravidla. Název sportu na ně nemá vliv.
 
-Model neřeší kontumace, bodové tresty, minitabulky vzájemných zápasů, kontrolu přesného skóre potřebného k ukončení setu, časomíru ani hráčské statistiky za jednotlivé části. Tyto funkce zadání nevyžaduje. U výsledku bez rozpisu částí nelze zpětně ověřit stav před prodloužením.
+Mimo návrh zůstávají kontumace, bodové tresty, minitabulky vzájemných zápasů, kontrola skóre pro ukončení setu, časomíra a hráčské statistiky po částech. U výsledku bez rozpisu částí nelze ověřit stav před prodloužením.
 
 ## Statistiky
 
-Definice individuálních statistik spravuje administrátor v `statistic_definitions`. Každá má název, typ (`INTEGER`, `DECIMAL`, `BOOLEAN`, `TEXT`), agregační funkci, případně jednotku a minimální nebo maximální hodnotu. Po prvním použití se nesmí změnit význam definice: kód, typ, jednotka, meze ani agregace. Je možné ji přejmenovat nebo deaktivovat; nová statistika s jiným významem dostane novou definici.
+Definice individuálních statistik spravuje administrátor v `statistic_definitions`. Každá má název, typ (`INTEGER`, `DECIMAL`, `BOOLEAN`, `TEXT`), agregační funkci, případně jednotku a minimální nebo maximální hodnotu. Po prvním použití se nesmí změnit význam definice: typ, jednotka, meze ani agregace. Definici identifikuje její `id`; další kód nepotřebuje. Je možné ji přejmenovat nebo deaktivovat; nová statistika s jiným významem dostane novou definici.
 
-`player_match_statistics` ukládá jednu hodnotu definice pro jednoho hráče v jednom zápase. Použije se právě jeden hodnotový sloupec odpovídající typu definice. Backend kontroluje typ, meze a přesnost hodnot, takže nedochází k tichému zaokrouhlování. Nevyplněná statistika neznamená nulu.
+`player_match_statistics` ukládá jednu hodnotu statistiky pro hráče a zápas, v jediném sloupci odpovídajícím typu definice. Backend ověřuje typ, meze a přesnost; hodnoty nesmí tiše zaokrouhlit. Nevyplněná statistika neznamená nulu.
 
 Statistiku lze zapsat jen hráči, který v daném zápase skutečně nastoupil (`played = true`), má docházku `PRESENT` nebo `LATE`, nebyl vyřazen a patří k jedné ze stran zápasu. Zápas musí mít po skončení zapsaný výsledek. Opravy docházky, nastoupení a výsledku musí zachovat platnost již uložených statistik nebo je opravit společně.
 
@@ -166,7 +169,7 @@ Stav příspěvku se vypočítá ze součtu nezrušených úhrad:
 
 Přeplacení se odmítne. Částku předpisu nelze snížit pod součet platných úhrad. Po první úhradě se nemění osoba, sezóna ani měna, ani když je platba později stornovaná.
 
-Chybný zápis platby se opravuje stornováním s uvedením autora, času a důvodu a případným zadáním nové platby. Storno evidenčního záznamu není vrácení peněz. Opakovaný požadavek se stejným UUID a obsahem se může bezpečně zopakovat, odlišný obsah je konflikt. Zrušený předpis nesmí mít aktivní úhrady, ale historie zůstává.
+Chybná platba se stornuje s autorem, časem a důvodem; případně se zapíše nová. Storno nevrací peníze. Opakovaný požadavek se stejným UUID a obsahem nic nezmění, jiný obsah je konflikt. Zrušený předpis nesmí mít aktivní úhrady; historie zůstává.
 
 Úloha pro notifikace hlídá nedoplatky a splatnosti. Upozorňuje člena, případně zástupce dítěte bez účtu, a administrátory. Plně zaplacený nebo zrušený příspěvek už další výzvu nevytváří. Platby za staré sezóny lze doplňovat i po archivaci. Součty různých měn se nesčítají; databáze kontroluje formát třípísmenného kódu měny, podporované měny aplikace.
 
@@ -184,7 +187,7 @@ Oznámení neobsahují soukromé zprávy, omluvenky ani citlivé informace o dí
 
 ## Integrita a souběžné operace
 
-Omezení jsou rozdělena mezi databázi a transakční služby:
+Kontroly při zápisu:
 
 | Vrstva                                     | Co kontroluje                                                                                                                                  |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -195,7 +198,7 @@ Omezení jsou rozdělena mezi databázi a transakční služby:
 
 Pro souběh změn se používá společný zámek řádku `club.id = 1`. Transakce čtoucí klubová data získá `FOR SHARE`, každá doménová změna a plánovaná úloha `FOR UPDATE`. Po získání zámku služba znovu načte aktuální oprávnění a závislá data v režimu `READ COMMITTED`, zkontroluje výsledný stav a zapíše změnu, audit a případná oznámení. Zámek drží až do potvrzení transakce; během transakce se nečeká na uživatele ani na síťové služby.
 
-Tímto postupem se pro jeden klub postupně provedou všechny zápisy. Je to jednoduché řešení pro očekávaný malý provoz, nikoli návrh pro vysokou souběžnost. Chrání například současné úhrady, změnu nominace při odebrání oprávnění nebo úpravu výsledku při změně pravidel. Po potvrzení odebrání oprávnění už další operace musí pracovat s novým stavem. Stejný postup musí dodržet i administrátorské opravy a plánované úlohy; přímé SQL mimo aplikaci tyto mezitabulkové kontroly nezajistí.
+Zámek řadí všechny zápisy za sebe, což omezuje propustnost. Pro malý klub tím chrání souběžné úhrady, odvolání oprávnění i změny výsledků a pravidel. Po potvrzení odvolání pracují další operace s novým stavem. Postup platí také pro administrátorské opravy a plánované úlohy. Přímé SQL mimo aplikaci mezitabulkové kontroly nezajistí.
 
 Sloupce `version` chrání uživatele před přepsáním dat zastaralým formulářem. Změna části zápasu zvyšuje verzi zápasu, změna bodování nebo řazení verzi soutěžního ročníku. Verzování nenahrazuje databázový zámek.
 
@@ -218,13 +221,13 @@ Archivace uchovává soupisky, výsledky a statistiky. Oprava archivovaných spo
 | Týmové statistiky a historie                       | Agregace výsledků a statistik podle historických týmů a sezón                              |
 | Minimálně dva sporty bez změny kódu                | Konfigurovatelné formáty a bodování; například fotbal a basketbal v oddělených instalacích |
 
-Jde o pokrytí na úrovni datového návrhu, nikoli o seznam hotových funkcí. Zápisy, výpočty tabulek, uživatelské rozhraní a notifikace je teprve potřeba implementovat a otestovat.
+Stav implementace a akceptační podmínky sledují [požadavky](requirements.md).
 
 ## Audit a provozní logy
 
 `audit_log` zachycuje změny rolí a vztahů, příspěvků, úhrad a historické opravy. Obsahuje autora, čas, typ změny, identifikaci dotčeného záznamu a případný důvod. Zápis auditu probíhá ve stejné transakci jako změna. Audit neukládá hesla, obsah soukromých zpráv ani kopie osobních údajů; přístup k němu má administrátor.
 
-Cíl auditu určuje dvojice `entity_type` a `entity_key`. `entity_key` je JSONB objekt se všemi sloupci primárního klíče, například `{"id":"<uuid>"}` u osoby nebo `{"guardian_user_id":"<uuid>","player_id":"<uuid>"}` u rodičovské vazby. Databáze kontroluje, že nejde o prázdný objekt; backend ověřuje odpovídající typy a úplnost klíče. Nejde o univerzální cizí klíč: audit musí zůstat čitelný i po odstranění původního záznamu. Při opravě více objektů vznikne záznam pro každý z nich.
+Cíl určuje název tabulky v `entity_type` a JSONB objekt se všemi sloupci primárního klíče v `entity_key`. Například `{"id":"<uuid>"}` u osoby nebo `{"guardian_user_id":"<uuid>","player_id":"<uuid>"}` u rodičovské vazby. Databáze odmítne prázdný objekt; backend ověří typy a úplnost klíče. Cizí klíč se nepoužívá, aby audit zůstal i po odstranění cíle. Oprava více objektů vytvoří záznam pro každý z nich.
 
 Provozní logy slouží k řešení chyb a sledování běhu aplikace. Nenahrazují audit změn. Jejich konkrétní obsah a dobu uchování určí implementace.
 
