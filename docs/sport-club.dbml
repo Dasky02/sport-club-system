@@ -1,0 +1,657 @@
+// Zjednodušený logický model podle zadani_sportovni_klub_v2.md.
+// Celý soubor vložte do dbdiagram.io. Nejde o migraci ani implementaci.
+Project sport_club {
+  database_type: 'PostgreSQL'
+  Note: 'Jedna instalace = jeden klub s jedním zvoleným sportem; 31 tabulek. Příspěvky jsou evidence povinností s ručním zápisem úhrad, bez platební brány. Důležité změny zaznamenává audit_log. Popis a zálohování: database.md.'
+}
+
+Enum user_role {
+  USER
+  ADMIN
+}
+Enum event_type {
+  TRAINING
+  MATCH
+  OTHER
+}
+Enum event_status {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+Enum availability_status {
+  UNKNOWN
+  AVAILABLE
+  UNAVAILABLE
+}
+Enum nomination_status {
+  NOT_SELECTED
+  SELECTED
+  RESERVE
+}
+Enum attendance_status {
+  PRESENT
+  ABSENT
+  EXCUSED
+  LATE
+}
+Enum statistic_value_type {
+  INTEGER
+  DECIMAL
+  BOOLEAN
+  TEXT
+}
+Enum statistic_aggregation {
+  SUM
+  AVG
+  MIN
+  MAX
+  COUNT
+  COUNT_TRUE
+  NONE
+}
+Enum notification_type {
+  EVENT_CREATED
+  EVENT_CHANGED
+  EVENT_CANCELLED
+  NOMINATION_PUBLISHED
+  NOMINATION_CHANGED
+  FEE_DUE_SOON
+  FEE_OVERDUE
+}
+
+Enum score_mode {
+  SUM_SCORE
+  WON_PARTS
+}
+Enum match_ending {
+  REGULATION
+  OVERTIME
+  SHOOTOUT
+}
+Enum match_outcome {
+  WIN
+  DRAW
+  LOSS
+}
+Enum ranking_metric {
+  POINTS
+  WINS
+  SCORE_DIFFERENCE
+  SCORE_FOR
+  SCORE_RATIO
+  PART_SCORE_DIFFERENCE
+  PART_SCORE_RATIO
+}
+Enum sort_direction {
+  ASC
+  DESC
+}
+
+Table persons {
+  id uuid [pk]
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  birth_date date
+  email varchar(254)
+  phone varchar(40)
+  Note: 'Jediný zdroj osobních údajů hráče, trenéra i zástupce. Datum narození je povinné pro osobu s hráčským profilem (transakční pravidlo), pro ostatní volitelné. Shoda jmen není identita; sdílený rodinný kontakt není UNIQUE.'
+}
+
+Table users {
+  id uuid [pk]
+  person_id uuid [not null, unique, ref: - persons.id]
+  username varchar(50) [not null, unique]
+  password_hash varchar(100) [not null]
+  role user_role [not null, default: 'USER']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  checks {
+    `updated_at >= created_at`
+  }
+  Note: 'Účet pro přihlášení a komunikaci. USER je běžný účet; bez vztahů nemá klubový rozsah. Systémová role USER/ADMIN; trenér, hráč a rodič se odvozují z vazeb a mohou se kombinovat. Návrh vyžaduje budoucí migraci rolí skeletonu, V1 se nyní nemění. Přihlašovací sloupce a auditní časy navazují na skeleton; role je zde logický enum, ve stávající V1 varchar s CHECK.'
+}
+
+Table player_profiles {
+  id uuid [pk]
+  person_id uuid [not null, unique, ref: - persons.id]
+  active boolean [not null, default: true]
+  Note: 'Sportovní profil osoby; účet se dohledá přes shodné person_id. Hráč může existovat bez přihlášení, např. nezletilé dítě. Jména a kontakty se zde neduplikují.'
+}
+
+Table guardian_links {
+  guardian_user_id uuid [not null, ref: > users.id]
+  player_id uuid [not null, ref: > player_profiles.id]
+  granted_by uuid [not null, ref: > users.id]
+  granted_at timestamptz [not null]
+  revoked_at timestamptz
+  relationship varchar(40) [not null, note: 'Rodič nebo zákonný zástupce.']
+  indexes {
+    (player_id, guardian_user_id)
+    (guardian_user_id, player_id) [pk]
+  }
+  checks {
+    `revoked_at IS NULL OR revoked_at >= granted_at`
+  }
+  Note: 'M:N rodič–dítě; vazbu přiděluje administrátor. revoked_at okamžitě ukončuje oprávnění. Opětovné schválení obnoví granted_by/granted_at a vynuluje revoked_at. Změna zamyká club FOR UPDATE proti běžným operacím s FOR SHARE a uzavře neoprávněné konverzační účasti. Audit identifikuje oba sloupce PK v entity_key.'
+}
+
+Table club {
+  id smallint [pk, default: 1]
+  name varchar(120) [not null]
+  sport_code varchar(40) [not null]
+  sport_name varchar(100) [not null]
+  checks {
+    `id = 1`
+  }
+  Note: 'Jediný klub a zvolený sport instalace. PK/CHECK dovolí nejvýše jeden řádek; inicializace ho musí vytvořit před doménovými operacemi. Všechna data mají implicitně tento klub a sport, bez opakovaných club_id/sport_id. Po použití se sport nemění; jiný sport používá oddělenou instalaci/databázi. Existující řádek je společný zámek: čtení klubových dat FOR SHARE, všechny doménové zápisy FOR UPDATE před načtením aktuálního oprávnění. Úplný protokol a pořadí zámků vlastní database.md.'
+}
+
+Table seasons {
+  id uuid [pk]
+  name varchar(100) [not null, unique]
+  starts_on date [not null]
+  ends_on date [not null]
+  archived boolean [not null, default: false]
+  checks {
+    `ends_on > starts_on`
+  }
+  Note: 'Sezóna je interval [starts_on, ends_on) v Europe/Prague. Po použití v team_seasons, competition_seasons, events nebo fee_assessments jsou hranice neměnné. Celý interval akce musí ležet v sezóně, konec smí být přesně na horní hranici. Sportovní zápisy, nové vazby, archivace a změny hranic používají společný výlučný zámek klubu. Archivace zachová výsledky, soupisky i statistiky.'
+}
+
+Table teams {
+  id uuid [pk]
+  name varchar(120) [not null]
+  is_club_team boolean [not null, default: true]
+  active boolean [not null, default: true]
+  Note: 'Stabilní identita vlastního týmu nebo externího soupeře stejného sportu instalace. Externí tým má sezónní identitu, ale nemá klubové hráče ani trenéry. Historicky použitá příslušnost ke klubu se nepřepisuje.'
+}
+
+Table team_seasons {
+  id uuid [pk]
+  team_id uuid [not null, ref: > teams.id]
+  season_id uuid [not null, ref: > seasons.id]
+  display_name varchar(120) [not null]
+  category varchar(60)
+  indexes {
+    (team_id, season_id) [unique]
+  }
+  Note: 'Vlastní i externí tým v sezóně. Jediný historický název a kategorie pro všechny soutěže téže sezóny; competition_entries je nekopíruje. Soupisky a trenéry mají pouze vlastní týmy. Team_id a season_id jsou po založení neměnné; chybnou identitu řeší nový řádek.'
+}
+
+Table player_team_memberships {
+  id uuid [pk]
+  team_season_id uuid [not null, ref: > team_seasons.id]
+  player_id uuid [not null, ref: > player_profiles.id]
+  valid_from date [not null]
+  valid_to date
+  jersey_number integer
+  indexes {
+    (player_id, team_season_id)
+    (team_season_id, player_id, valid_from) [unique]
+  }
+  checks {
+    `valid_to IS NULL OR valid_to > valid_from`
+    `jersey_number IS NULL OR jersey_number >= 0`
+  }
+  Note: 'Členství [valid_from, valid_to) zachová i přestup během sezóny. NULL valid_to znamená konec sezóny. Stejné dvojici se intervaly nepřekrývají; v PostgreSQL vyžaduje EXCLUDE, samotné UNIQUE nestačí. Player_id a team_season_id se nemění. Změna intervalu nebo odstranění zamyká club FOR UPDATE a ověřuje všechny dotčené účasti; nesmí zneplatnit historii. Budoucí účasti s navázanými záznamy vyžadují řízené vyřešení akce podle database.md.'
+}
+
+Table coach_team_memberships {
+  id uuid [pk]
+  team_season_id uuid [not null, ref: > team_seasons.id]
+  coach_user_id uuid [not null, ref: > users.id]
+  valid_from date [not null]
+  valid_to date
+  indexes {
+    (coach_user_id, team_season_id)
+    (team_season_id, coach_user_id, valid_from) [unique]
+  }
+  checks {
+    `valid_to IS NULL OR valid_to > valid_from`
+  }
+  Note: 'Datumované přiřazení účtu, které zakládá trenérské oprávnění; NULL valid_to znamená konec sezóny. Intervaly stejné dvojice se nepřekrývají (EXCLUDE). Tým má více trenérů a trenér více týmů. Osobní údaje trenéra jsou v persons. Coach_user_id a team_season_id se nemění. Změna zamyká club FOR UPDATE, znovu ověří oprávnění a uzavře neoprávněné konverzační účasti; minulé autorství trenéra zůstává.'
+}
+
+Table events {
+  version bigint [not null, default: 0, note: 'Optimistic locking; každá změna řádku zvýší verzi.']
+  id uuid [pk]
+  season_id uuid [not null, ref: > seasons.id]
+  type event_type [not null]
+  title varchar(160) [not null]
+  description text
+  starts_at timestamptz [not null]
+  ends_at timestamptz [not null]
+  location varchar(200)
+  status event_status [not null, default: 'DRAFT']
+  availability_deadline timestamptz
+  nomination_published_at timestamptz
+  created_by uuid [not null, ref: > users.id]
+  indexes {
+    (season_id, starts_at)
+  }
+  checks {
+    `version >= 0`
+    `ends_at > starts_at`
+    `availability_deadline IS NULL OR availability_deadline <= starts_at`
+  }
+  Note: 'Obecná událost bez sportově specifických polí. Interval akce leží celý mezi půlnocemi hranic sezóny v Europe/Prague, včetně externích zápasů a konceptů. Přesun za hranici se odmítne; dosud neodehranou akci lze zrušit a založit novou v cílové sezóně. Season_id/type lze opravit jen u DRAFT bez týmů, účastníků, detailu zápasu a oznámení. Všechny zápisy akce a jejích potomků zamykají klub FOR UPDATE; přesun termínu a změny vazeb znovu kontrolují všechny navázané údaje podle database.md.'
+}
+
+Table event_teams {
+  event_id uuid [not null, ref: > events.id]
+  team_season_id uuid [not null, ref: > team_seasons.id]
+  indexes {
+    (team_season_id, event_id)
+    (event_id, team_season_id) [pk]
+  }
+  Note: 'Událost může být společná více týmům stejné sezóny.'
+}
+
+Table event_participants {
+  event_id uuid [not null]
+  player_id uuid [not null, ref: > player_profiles.id]
+  team_season_id uuid [not null]
+  version bigint [not null, default: 0]
+  availability availability_status
+  availability_comment varchar(500)
+  availability_by uuid [ref: > users.id]
+  availability_at timestamptz
+  nomination nomination_status
+  nomination_by uuid [ref: > users.id]
+  nomination_at timestamptz
+  attendance attendance_status
+  attendance_comment varchar(500)
+  attendance_by uuid [ref: > users.id]
+  attendance_at timestamptz
+  played boolean
+  played_by uuid [ref: > users.id]
+  played_at timestamptz
+  withdrawn_at timestamptz
+  withdrawal_reason varchar(500)
+  indexes {
+    (player_id, event_id)
+    (event_id, player_id) [pk]
+  }
+  checks {
+    `version >= 0`
+    `num_nonnulls(availability, availability_by, availability_at) IN (0, 3)`
+    `availability IS NOT NULL OR availability_comment IS NULL`
+    `num_nonnulls(nomination, nomination_by, nomination_at) IN (0, 3)`
+    `num_nonnulls(attendance, attendance_by, attendance_at) IN (0, 3)`
+    `attendance IS NOT NULL OR attendance_comment IS NULL`
+    `num_nonnulls(played, played_by, played_at) IN (0, 3)`
+    `played IS DISTINCT FROM TRUE OR (attendance IS NOT NULL AND attendance IN ('PRESENT', 'LATE'))`
+    `(withdrawn_at IS NULL AND withdrawal_reason IS NULL) OR (withdrawn_at IS NOT NULL AND withdrawal_reason IS NOT NULL AND length(trim(withdrawal_reason)) > 0 AND attendance IS NULL AND played IS NULL)`
+  }
+  Note: 'Jeden hráč za jeden historický tým akce. Čtyři nezávislé skupiny mají vlastní stav, autora a čas; NULL znamená nezapsáno, UNKNOWN/NOT_SELECTED/false explicitní záznam. Jedna version chrání celý vztah, DTO smí měnit jen autorizovanou skupinu. Played je pouze pro MATCH a neodvozuje se z docházky. Withdrawn_at trvale vyřadí budoucí účast, zachová odpověď a nominaci; důvod a audit zapisuje server. Životní cyklus a mezitabulkové kontroly vlastní database.md.'
+}
+
+Table competitions {
+  id uuid [pk]
+  name varchar(160) [not null]
+}
+
+Table competition_seasons {
+  id uuid [pk]
+  version bigint [not null, default: 0]
+  competition_id uuid [not null, ref: > competitions.id]
+  season_id uuid [not null, ref: > seasons.id]
+  match_format_id uuid [not null, ref: > match_formats.id]
+  locked_at timestamptz
+  indexes {
+    (competition_id, season_id) [unique]
+    (id, match_format_id) [unique]
+  }
+  checks { `version >= 0` }
+  Note: 'Ročník vlastní bodovací pravidla a pořadí; formát může sdílet s jiným ročníkem s jinými body. Identita a match_format_id jsou po založení neměnné. První část/výsledek jeho zápasu trvale zmrazí bodování i řazení pomocí locked_at; smazání výsledku jej neodemkne.'
+}
+
+Table match_formats {
+  id uuid [pk]
+  version bigint [not null, default: 0]
+  name varchar(120) [not null]
+  score_mode score_mode [not null]
+  allow_draw boolean [not null]
+  periods_required boolean [not null, default: false]
+  period_label varchar(100) [not null]
+  regulation_period_count integer
+  wins_required integer
+  allow_overtime boolean [not null, default: false]
+  allow_shootout boolean [not null, default: false]
+  shootout_winner_bonus integer [not null, default: 0]
+  locked_at timestamptz
+  checks {
+    `version >= 0 AND shootout_winner_bonus >= 0`
+    `length(trim(period_label)) > 0`
+    `regulation_period_count IS NULL OR regulation_period_count > 0`
+    `allow_shootout OR shootout_winner_bonus = 0`
+    `(score_mode = 'SUM_SCORE' AND wins_required IS NULL) OR (score_mode = 'WON_PARTS' AND periods_required AND wins_required IS NOT NULL AND wins_required > 0 AND NOT allow_draw AND NOT allow_overtime AND NOT allow_shootout AND regulation_period_count IS NULL)`
+  }
+  Note: 'Pouze formát výsledku, nezávislý na bodování soutěže. Jediný název běžné části a volitelný pevný počet v základní době nahrazují katalog typů. Fáze REGULATION/OVERTIME/SHOOTOUT má pevný obecný význam. Po první části/výsledku trvale neměnný; nové parametry znamenají nový formát. Bez větvení podle názvu sportu.'
+}
+
+Table competition_point_rules {
+  id uuid [pk]
+  competition_season_id uuid [not null, ref: > competition_seasons.id]
+  outcome match_outcome [not null]
+  ending match_ending [not null]
+  own_score_min integer
+  own_score_max integer
+  opponent_score_min integer
+  opponent_score_max integer
+  points integer [not null]
+  indexes { competition_season_id }
+  checks {
+    `points >= 0`
+    `own_score_min IS NULL OR own_score_min >= 0`
+    `own_score_max IS NULL OR own_score_max >= 0`
+    `opponent_score_min IS NULL OR opponent_score_min >= 0`
+    `opponent_score_max IS NULL OR opponent_score_max >= 0`
+    `own_score_min IS NULL OR own_score_max IS NULL OR own_score_min <= own_score_max`
+    `opponent_score_min IS NULL OR opponent_score_max IS NULL OR opponent_score_min <= opponent_score_max`
+  }
+  Note: 'Body z pohledu jednoho týmu podle výhry/remízy/prohry, ukončení a inkluzivních intervalů finálního skóre. NULL mez je neomezená. Pro každou stranu musí při dokončení existovat právě jedno pravidlo; překryvy pravidel se zakážou při konfiguraci. Bez implicitních výchozích bodů a bez uživatelských SQL či skriptů.'
+}
+
+Table competition_ranking_criteria {
+  competition_season_id uuid [not null, ref: > competition_seasons.id]
+  priority integer [not null]
+  metric ranking_metric [not null]
+  direction sort_direction [not null, default: 'DESC']
+  indexes {
+    (competition_season_id, priority) [pk]
+    (competition_season_id, metric) [unique]
+  }
+  checks { `priority > 0` }
+  Note: 'Admin volí seřazený seznam metrik a směr. SCORE znamená finální skóre, PART_SCORE skóre započítávaných částí. Poměry vyžadují pravidla v database.md; PART_SCORE metriky vyžadují povinné části formátu ročníku. Bodování i řazení jsou po zamčení ročníku neměnné. Úplná shoda všech kritérií sdílí pořadí. Minitabulka vzájemných zápasů není v rozsahu.'
+}
+
+Table competition_entries {
+  competition_season_id uuid [not null, ref: > competition_seasons.id]
+  team_season_id uuid [not null, ref: > team_seasons.id]
+  indexes {
+    (team_season_id, competition_season_id)
+    (competition_season_id, team_season_id) [pk]
+  }
+  Note: 'Účast sezónního týmu v ročníku soutěže. Ročník a tým musejí mít stejnou sezónu. Historický název pochází pouze z team_seasons; sport je společný pro instalaci.'
+}
+
+Table matches {
+  event_id uuid [pk]
+  version bigint [not null, default: 0]
+  competition_season_id uuid
+  match_format_id uuid [not null, ref: > match_formats.id]
+  home_team_season_id uuid [not null, ref: > team_seasons.id]
+  away_team_season_id uuid [not null, ref: > team_seasons.id]
+  home_score integer
+  away_score integer
+  ending match_ending
+  shootout_winner_home boolean
+  result_by uuid [ref: > users.id]
+  result_at timestamptz
+  checks {
+    `version >= 0`
+    `home_team_season_id <> away_team_season_id`
+    `num_nonnulls(home_score, away_score, ending, result_by, result_at) IN (0, 5)`
+    `home_score IS NULL OR home_score >= 0`
+    `away_score IS NULL OR away_score >= 0`
+    `(ending IS NULL AND shootout_winner_home IS NULL) OR (ending IS NOT NULL AND ((ending = 'SHOOTOUT' AND shootout_winner_home IS NOT NULL) OR (ending <> 'SHOOTOUT' AND shootout_winner_home IS NULL)))`
+  }
+  Note: 'Detail MATCH a volitelný úplný výsledek v jednom řádku. NULL ročník znamená přátelský zápas; složené FK používají MATCH SIMPLE. Strany a ročník mají sezónu akce, klubové strany přesně odpovídají event_teams. Formát a ročník jsou po založení neměnné; strany po první části/výsledku/nastoupení/statistice neměnné. Při částech je skóre odvozené, nikoli druhý nezávislý zdroj. Shootout_winner_home explicitně určí vítěze i při nulovém bonusu a stejném finálním skóre. Jen COMPLETED vstupuje do součtů.'
+}
+
+Table match_periods {
+  event_id uuid [not null, ref: > matches.event_id]
+  period_number integer [not null]
+  phase match_ending [not null, default: 'REGULATION']
+  home_score integer [not null]
+  away_score integer [not null]
+  indexes { (event_id, period_number) [pk] }
+  checks {
+    `period_number > 0`
+    `home_score >= 0 AND away_score >= 0`
+    `phase <> 'SHOOTOUT' OR home_score <> away_score`
+  }
+  Note: 'Chronologická část; při dokončení souvislá čísla od 1. Formát se odvodí ze zápasu, bez duplicitního ID a katalogu typů. REGULATION/OVERTIME se započítávají, SHOOTOUT jen určuje vítěze a nikdy se nesčítá. Počet, pořadí fází a soulad výsledku kontroluje služba pod zámkem klubu; oprava či odstranění atomicky přepočítá výsledek nebo se odmítne.'
+}
+
+Table statistic_definitions {
+  version bigint [not null, default: 0, note: 'Optimistic locking; každá změna řádku zvýší verzi.']
+  id uuid [pk]
+  code varchar(40) [not null, note: 'Stabilní identifikátor významu; nová definice dostane nový kód.']
+  name varchar(120) [not null]
+  value_type statistic_value_type [not null]
+  aggregation statistic_aggregation [not null]
+  unit varchar(40)
+  min_value numeric
+  max_value numeric
+  active boolean [not null, default: true]
+  locked_at timestamptz
+  indexes {
+    code [unique]
+  }
+  checks {
+    `version >= 0`
+    `(value_type IN ('INTEGER', 'DECIMAL') AND aggregation IN ('SUM', 'AVG', 'MIN', 'MAX', 'COUNT', 'NONE')) OR (value_type = 'BOOLEAN' AND aggregation IN ('COUNT_TRUE', 'COUNT', 'NONE')) OR (value_type = 'TEXT' AND aggregation IN ('COUNT', 'NONE'))`
+    `value_type IN ('INTEGER', 'DECIMAL') OR (min_value IS NULL AND max_value IS NULL)`
+    `min_value IS NULL OR max_value IS NULL OR min_value <= max_value`
+    `value_type <> 'INTEGER' OR ((min_value IS NULL OR min_value = trunc(min_value)) AND (max_value IS NULL OR max_value = trunc(max_value)))`
+    `min_value IS NULL OR min_value NOT IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)`
+    `max_value IS NULL OR max_value NOT IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)`
+  }
+  Note: 'Název, typ a volitelné inkluzivní numerické meze spravuje admin. Od první hodnoty jsou kód, typ, jednotka, agregace a meze trvale neměnné, i po smazání hodnot; změna významu založí novou definici. Deaktivace ponechá staré hodnoty. Změna definice i zápis/oprava/smazání hodnoty zamykají klub FOR UPDATE před kontrolou typu, mezí a použití.'
+}
+
+Table player_match_statistics {
+  version bigint [not null, default: 0]
+  event_id uuid [not null]
+  player_id uuid [not null]
+  statistic_definition_id uuid [not null, ref: > statistic_definitions.id]
+  integer_value bigint
+  decimal_value numeric(20,6)
+  boolean_value boolean
+  text_value varchar(1000)
+  recorded_at timestamptz [not null]
+  recorded_by uuid [not null, ref: > users.id]
+  indexes {
+    (player_id, statistic_definition_id, event_id)
+    (event_id, player_id, statistic_definition_id) [pk]
+  }
+  checks {
+    `version >= 0`
+    `num_nonnulls(integer_value, decimal_value, boolean_value, text_value) = 1`
+    `decimal_value IS NULL OR decimal_value NOT IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)`
+  }
+  Note: 'Jedna hodnota definice za hráče a zápas. Typ a meze hodnoty odpovídají definici. Chybějící řádek není nula; hráč musí mít skutečnou účast. Version chrání souběžnou opravu.'
+}
+
+Table fee_assessments {
+  id uuid [pk]
+  version bigint [not null, default: 0]
+  person_id uuid [not null, ref: > persons.id]
+  season_id uuid [not null, ref: > seasons.id]
+  title varchar(160) [not null]
+  amount numeric(14,2) [not null]
+  currency char(3) [not null, default: 'CZK']
+  due_on date [not null]
+  cancelled boolean [not null, default: false]
+  created_by uuid [not null, ref: > users.id]
+  indexes {
+    (person_id, season_id)
+    due_on
+  }
+  checks {
+    `version >= 0`
+    `currency ~ '^[A-Z]{3}$'`
+    `amount > 0 AND amount NOT IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)`
+  }
+  Note: 'Jeden příspěvek osobě za sezónu s částkou a jedinou splatností. Několik částečných úhrad je povoleno; splátkový kalendář, slevy, vratky a odměny se nespravují. Součet nezrušených fee_payments určuje stav. Úhrada nepřekročí částku, zrušený předpis nemá aktivní úhrady. Osoba, sezóna a měna se po první úhradě nemění; změna částky nesmí klesnout pod uhrazený součet. Zápis, oprava i výzva používají společný zámek klubu.'
+}
+
+Table fee_payments {
+  id uuid [pk]
+  fee_assessment_id uuid [not null, ref: > fee_assessments.id]
+  amount numeric(14,2) [not null]
+  paid_on date [not null]
+  reference varchar(160)
+  recorded_at timestamptz [not null]
+  recorded_by uuid [not null, ref: > users.id]
+  cancelled_at timestamptz
+  cancelled_by uuid [ref: > users.id]
+  cancellation_reason varchar(500)
+  indexes { fee_assessment_id }
+  checks {
+    `amount > 0 AND amount NOT IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)`
+    `(cancelled_at IS NULL AND cancelled_by IS NULL AND cancellation_reason IS NULL) OR (cancelled_at IS NOT NULL AND cancelled_by IS NOT NULL AND cancellation_reason IS NOT NULL AND length(trim(cancellation_reason)) > 0 AND cancelled_at >= recorded_at)`
+  }
+  Note: 'Admin ručně zapíše skutečně přijatou platbu. Osoba a měna se odvozují z předpisu. Částka ani předpis se nepřepisují; chybný zápis se zruší s důvodem a případně nahradí novým, s auditem ve stejné transakci. Zrušení opravuje evidenci, neprovádí vrácení peněz. Platební brána není v rozsahu.'
+}
+
+Table conversations {
+  id uuid [pk]
+  title varchar(160)
+  team_season_id uuid [not null, ref: > team_seasons.id]
+  created_by uuid [not null, ref: > users.id]
+  created_at timestamptz [not null]
+  Note: 'Přímá i skupinová klubová komunikace má týmový kontext a explicitní seznam účastníků. Historická sezóna sama nedává aktuální oprávnění. Čtení i zápis používají společný zámek klubu a znovu ověřují účast i aktuální vztah podle database.md.'
+}
+
+Table conversation_participants {
+  conversation_id uuid [not null, ref: > conversations.id]
+  user_id uuid [not null, ref: > users.id]
+  joined_at timestamptz [not null]
+  left_at timestamptz
+  indexes {
+    (user_id, conversation_id)
+    (conversation_id, user_id) [pk]
+  }
+  checks {
+    `left_at IS NULL OR left_at >= joined_at`
+  }
+  Note: 'Aktivní účast vyžaduje left_at IS NULL a současné oprávnění k týmu. Odchod zachová řádek kvůli autorství zpráv. Left_at je konečný odchod; účast se neobnovuje. Nová komunikace používá novou konverzaci. Nově přidaný účastník čte zprávy až od joined_at.'
+}
+
+Table messages {
+  id uuid [pk]
+  conversation_id uuid [not null]
+  author_id uuid [not null]
+  body varchar(5000) [not null]
+  sent_at timestamptz [not null]
+  indexes {
+    (conversation_id, sent_at, id)
+  }
+  checks {
+    `length(trim(body)) > 0`
+  }
+  Note: 'Autor je historicky účastníkem příslušné konverzace; odeslání navíc vyžaduje aktivní účast a aktuální oprávnění. Odebraný účastník se nemaže.'
+}
+
+Table notifications {
+  id uuid [pk]
+  type notification_type [not null]
+  event_id uuid [ref: > events.id]
+  fee_assessment_id uuid [ref: > fee_assessments.id]
+  title varchar(160) [not null]
+  body varchar(2000) [not null]
+  deduplication_key varchar(200) [not null, unique]
+  created_at timestamptz [not null]
+  checks {
+    `(type IN ('FEE_DUE_SOON', 'FEE_OVERDUE') AND fee_assessment_id IS NOT NULL AND event_id IS NULL) OR (type NOT IN ('FEE_DUE_SOON', 'FEE_OVERDUE') AND event_id IS NOT NULL AND fee_assessment_id IS NULL)`
+  }
+  Note: 'Jedno neměnné oznámení zdrojové změny nebo výzvy, sdílené adresáty. Jedinečný klíč identifikuje zdrojovou operaci/verzi, u příspěvku předpis/splatnost/druh výzvy. Text je obecný bez soukromých údajů adresáta.'
+}
+
+Table notification_deliveries {
+  notification_id uuid [not null, ref: > notifications.id]
+  recipient_id uuid [not null, ref: > users.id]
+  delivered_at timestamptz [not null]
+  read_at timestamptz
+  indexes {
+    (notification_id, recipient_id) [pk]
+    (recipient_id, read_at, delivered_at)
+  }
+  checks {
+    `read_at IS NULL OR read_at >= delivered_at`
+  }
+  Note: 'Jedno doručení oznámení účtu; PK brání duplicitě. Delivered_at není před vytvořením oznámení. Schránka a přečtení se autorizují přes recipient_id, detail cíle zvlášť.'
+}
+
+Ref: matches.(competition_season_id, match_format_id) > competition_seasons.(id, match_format_id)
+Ref: events.id - matches.event_id
+Ref: event_participants.(event_id, team_season_id) > event_teams.(event_id, team_season_id)
+Ref: matches.(competition_season_id, home_team_season_id) > competition_entries.(competition_season_id, team_season_id)
+Ref: matches.(competition_season_id, away_team_season_id) > competition_entries.(competition_season_id, team_season_id)
+Ref: player_match_statistics.(event_id, player_id) > event_participants.(event_id, player_id)
+Ref: player_match_statistics.event_id > matches.event_id
+Ref: messages.(conversation_id, author_id) > conversation_participants.(conversation_id, user_id)
+
+TableGroup clenove {
+  persons
+  users
+  player_profiles
+  guardian_links
+}
+TableGroup tymy_a_sezony {
+  club
+  seasons
+  teams
+  team_seasons
+  player_team_memberships
+  coach_team_memberships
+}
+TableGroup akce_a_ucast {
+  events
+  event_teams
+  event_participants
+}
+TableGroup souteze {
+  competitions
+  competition_seasons
+  match_formats
+  competition_point_rules
+  competition_ranking_criteria
+  competition_entries
+  matches
+  match_periods
+}
+TableGroup statistiky {
+  statistic_definitions
+  player_match_statistics
+}
+TableGroup prispevky {
+  fee_assessments
+  fee_payments
+}
+TableGroup komunikace {
+  conversations
+  conversation_participants
+  messages
+  notifications
+  notification_deliveries
+}
+
+Table audit_log {
+  id uuid [pk]
+  actor_user_id uuid [ref: > users.id]
+  occurred_at timestamptz [not null]
+  action varchar(80) [not null]
+  entity_type varchar(60) [not null]
+  entity_key jsonb [not null, note: 'Přesný úplný PK cíle jako objekt: názvy sloupců a kanonické hodnoty. U složeného PK všechny části, bez kopií osobních údajů.']
+  reason varchar(500)
+  indexes {
+    (entity_type, entity_key, occurred_at)
+    (actor_user_id, occurred_at)
+  }
+  checks {
+    `length(trim(action)) > 0`
+    `length(trim(entity_type)) > 0`
+    `jsonb_typeof(entity_key) = 'object' AND entity_key <> '{}'::jsonb`
+  }
+  Note: 'Neměnný záznam úspěšné důležité změny: role, vztah, příspěvek, úhrada nebo oprava historie. Ukládá se ve stejné transakci jako změna; NULL actor_user_id znamená systémovou operaci. Entity_type je název tabulky, entity_key obsahuje přesně její úplný PK; backend kontroluje povolený cíl, názvy a typy všech částí. Bez univerzálního FK, aby záznam přežil odstranění cíle. Jeden řádek auditu označuje jeden cíl. Autor/čas/akce i klíč cíle pocházejí ze serveru; neukládá hesla, session, obsah zpráv ani kopie osobních údajů. Čtení auditních záznamů je vyhrazené adminovi; doba uchování bude stanovena před provozem. Nenahrazuje provozní logy ani úplnou historii hodnot.'
+}
+
+TableGroup audit {
+  audit_log
+}
