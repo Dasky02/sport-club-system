@@ -1,78 +1,116 @@
 # Autentizace a návrh oprávnění
 
-**Stav:** skeleton poskytuje registraci, přihlášení, aktuální účet, odhlášení a technické informace. Klubové role jsou připravené hodnoty účtu. Níže uvedené týmové, rodičovské, finanční a komunikační kontroly jsou **návrh pro navazující implementaci**, nikoli současné klubové API. Přidání role do enumu samo o sobě žádnou doménovou funkci neimplementuje.
+**Stav:** skeleton poskytuje registraci, přihlášení, aktuální účet, odhlášení a technické informace. Jeho enum stále obsahuje `USER`, `ADMIN`, `COACH`, `PLAYER` a `PARENT`. Níže je **cílový návrh**, nikoli hotové klubové API: `users.role` bude pouze `USER` nebo `ADMIN`, `users.account_type` rozliší `STANDARD` a `CHILD` a klubová oprávnění se odvodí z vazeb podle [databázového modelu](database.md). Převod existujících účtů vyžaduje novou migraci a autorizační testy. Tato dokumentace chování skeletonu nemění.
 
 ## Přihlašovací základ
 
-Zachovává se `User`, `UserRepository`, `UserService` jako `UserDetailsService`, BCrypt a JSON login ze šablony. Spring udržuje session `JSESSIONID`; Next.js používá credentials a CSRF token při měnících požadavcích. Přihlášení rotuje identifikátor session a uloží security context, odhlášení invaliduje session a odstraní cookie. Produkční cookie je HttpOnly, Secure přes HTTPS a s vhodným SameSite. Nezavádí se HTTP Basic, JWT ani druhá autentizace na frontendu.
+Zachovává se `User`, `UserRepository`, `UserService` jako `UserDetailsService`, BCrypt a JSON login ze šablony. Spring udržuje session `JSESSIONID`; Next.js používá credentials a CSRF token při měnících požadavcích. Přihlášení rotuje identifikátor session, odhlášení ji invaliduje a odstraní cookie. Produkční cookie je HttpOnly, Secure přes HTTPS a s vhodným SameSite. Nezavádí se HTTP Basic, JWT ani druhá autentizace na frontendu.
 
-Veřejné informační endpointy a registrace nevyžadují klubovou roli. Registrace vytváří `USER` bez přístupu ke klubovým datům. Server nebere `role`, `playerId`, `teamId` ani `guardianLinks` z registračního requestu jako oprávnění. Změny klubových rolí a vztahů budou vyhrazené administrátorovi, auditované a nesmějí být v přihlášení/autoregistraci.
+Veřejná registrace nikdy nepřiděluje `ADMIN`, trenérské přiřazení, hráčský profil ani rodičovskou vazbu. Server nebere `role`, `accountType`, `personId`, `playerId`, `teamId` ani `guardianLinks` z requestu jako oprávnění. V cílové aplikaci vzniká běžný účet `USER`/`STANDARD`; omezený účet dítěte vyžaduje samostatnou administrátorsky řízenou aktivaci. Připojení existující osoby a profilu se ověřuje, nikdy se neděje jen podle shodného jména nebo klientem dodaného UUID.
 
-Chybějící/neplatná session vrací JSON 401, nedovolená operace JSON 403 ve formátu centrálního handleru. Čtení cizího nepřístupného doménového objektu vrací 404, aby neprozradilo jeho existenci. Přístupné objekty s nepovolenou změnou vracejí 403. Neplatný CSRF token vrací 403 i pro jinak přístupnou změnu. CORS pouze vymezuje povolené origins, není autorizační pravidlo.
+Chybějící/neplatná session vrací JSON 401, nedovolená operace JSON 403 ve formátu centrálního handleru. Čtení cizího nepřístupného objektu vrací 404, aby neprozradilo jeho existenci. Přístupné objekty s nepovolenou změnou vracejí 403. Neplatný CSRF token vrací 403 i pro jinak přístupnou změnu. CORS pouze vymezuje origins, není autorizační pravidlo.
 
-## Klubové role
+## Systémová role, typ účtu a klubové vztahy
 
-Účet má v současném modelu právě jednu roli. `ADMIN` má explicitní administrátorská oprávnění v rámci tohoto jediného klubu; nemusí mít duplicitní trenérskou roli. `USER` je technická role pro nepřiřazený účet a není pátá klubová role. Příručka pokrývá čtyři klubové role: [administrátor, trenér, hráč, rodič](user-guide.md).
+Účet má jednu systémovou roli `USER` nebo `ADMIN`. Běžný `STANDARD`/`USER` smí pracovat s vlastním účtem a povolenými vlastními údaji, číst své příspěvky a vlastní notifikace. Bez dalších vazeb nevidí týmové seznamy, kalendáře, jiné hráče ani konverzace. Registrace z uživatele automaticky nedělá hráče.
 
-| Operace finální aplikace | ADMIN | COACH | PLAYER | PARENT |
+Klubové činnosti mají tyto podmínky:
+
+- **Administrátor:** účet `STANDARD` s `users.role = ADMIN`; má správní oprávnění pro tento klub.
+- **Trenér:** účet `STANDARD` a platné `coach_team_memberships.coach_user_id = currentUser.id` pro požadovaný tým a období. Samostatná tabulka trenérských profilů se nepoužívá.
+- **Hráč:** účet i `player_profiles` odkazují přes `person_id` na tutéž osobu. Pro týmové operace se ověřuje také `player_team_memberships`. Účet může být `STANDARD` nebo omezený `CHILD`.
+- **Rodič nebo zákonný zástupce:** účet `STANDARD`, jehož `users.person_id` odpovídá `guardian_links.guardian_person_id` u schválené, neodvolané vazby ke konkrétnímu hráči. Pro týmové operace se ověřuje i členství dítěte.
+
+Trenér, hráč a rodič nejsou další hodnoty `users.role`. Jeden účet `STANDARD` může splňovat více podmínek současně; pro danou operaci se uplatní jeho skutečné vazby a systémová role. Trenér s rodičovskou vazbou může číst příspěvky svého dítěte díky této vazbě, nikoli díky trenérskému přiřazení. Zánik jedné vazby neodebere oprávnění, které stále plyne z jiné platné vazby.
+
+Hráčský profil, včetně dítěte, může existovat bez účtu i bez rodičovské vazby. Dítě je evidovaná osoba a hráčský profil, nikoli další systémová role. Rodičovskou vazbu lze evidovat také k osobě bez přihlášení; samotná existence osoby nebo vazby nezakládá session, přístup ani doručení. Pro přihlášené rodičovské činnosti je nutný odpovídající účet `STANDARD`.
+
+### Omezený účet dítěte
+
+Účet `CHILD` má jen roli `USER` a vlastní hráčský profil přes shodné `person_id`. Nemůže být `ADMIN`, trenérem ani oprávněným zástupcem. Vzniká s `users.enabled = false`; administrátorská aktivace vyžaduje alespoň jednu schválenou, neodvolanou vazbu dítěte na osobu s účtem `STANDARD`, který má `enabled = true`. Typ účtu, datum narození, systémovou roli, identitu osoby a rodičovské vazby dítě samo nemění. Administrátorský převod typu účtu musí ověřit podmínky výsledného stavu; změna vlastního profilu tato omezení neobchází.
+
+**Finanční přístup je pro CHILD vždy zakázaný**, včetně vlastních předpisů a úhrad, částek, zůstatků, součtů, exportů a finančních notifikací. Zákaz se kontroluje na backendu před zpřístupněním finančního rozsahu; shodné `person_id` jej nepřebíjí. `FEE_DUE_SOON` ani `FEE_OVERDUE` se dítěti nedoručují a jejich obsah ani počet se mu nevrací přes schránku nebo přímé API. Příspěvky dítěte spravuje a čte administrátor a jeho oprávněný rodič.
+
+Po zániku poslední platné vazby nebo deaktivaci posledního odpovídajícího rodičovského účtu `STANDARD` dostane účet `CHILD` `enabled = false` a jeho session se invalidují. Platná rodičovská podmínka se kontroluje při přihlášení i každém autorizovaném požadavku; samotné `enabled = true` nebo stará session nestačí. Obnovení vyžaduje opět platnou schválenou vazbu a administrátorskou aktivaci. Profil, členství a sportovní historie dítěte se nemažou a oprávněný trenér je může dále spravovat.
+
+| Operace finální aplikace | ADMIN (STANDARD) | Trenér podle přiřazení | Hráč s vlastním účtem | Rodič podle vazby (STANDARD) |
 | --- | --- | --- | --- | --- |
-| Správa sportů, sezón, týmů, profilů a soutěží | Ano, klub | Ne; vlastní kontaktní údaje mohou mít samostatnou operaci | Jen povolená pole vlastního profilu | Jen povolená kontaktní pole vlastního účtu, dítě dle schválené vazby |
-| Přidělení role, vazby účtu/hráče, vazby rodiče, členství | Ano, s auditem | Ne | Ne | Ne, může nejvýše požádat o vazbu |
+| Správa klubu, sezón, týmů, osob a soutěží | Ano, klub | Jen povolené vlastní údaje | Jen povolené vlastní údaje; CHILD nemění chráněná pole | Jen povolené vlastní údaje, dítě dle vazby |
+| Přidělení ADMIN, typ účtu, propojení osoby, rodičovské vazby a členství | Ano, s auditem a validací | Ne | Ne | Ne, může nejvýše požádat o ověření |
 | Týmový kalendář | Ano | Přiřazené týmy/sezóny | Týmy vlastního členství | Týmy schválených dětí |
 | Vytvoření a změna události | Ano | Všechny dotčené týmy musejí být přiřazené trenérovi | Ne | Ne |
-| Dostupnost/omluva hráče | Ano s důvodem | Hráč v přiřazeném týmu s důvodem | Jen vlastní profil | Jen explicitně schválené dítě |
-| Vytvoření a publikování nominace | Ano | Přiřazený tým a hráči tohoto týmu k datu události | Ne | Ne |
-| Zápis skutečné docházky | Ano | Přiřazený tým a platný účastník | Ne | Ne |
-| Zápis a potvrzení výsledku a statistik | Ano | Zápas přiřazeného týmu v otevřené sezóně | Ne | Ne |
-| Soutěžní tabulky a agregované týmové statistiky | Ano | V kontextu přiřazených týmů | V kontextu vlastních týmů | V kontextu týmů dětí |
-| Individuální historie hráče | Ano | Pouze oprávněný tým/sezóna, bez cizích osobních dat | Vlastní profil | Schválené dítě |
-| Definice individuálních statistik, bodování a kritérií shody | Ano | Ne, jen používá platné definice | Ne | Ne |
-| Čtení příspěvků a plateb | Všichni členové klubu | Jen vlastní předpisy, žádné finanční údaje svěřenců | Vlastní předpisy | Předpisy schváleného dítěte |
-| Zápis předpisu, platby, alokace nebo storna | Ano s auditem | Ne | Ne | Ne |
-| Čtení notifikace/označení přečtení | Pouze vlastní schránka | Pouze vlastní schránka | Pouze vlastní schránka | Pouze vlastní schránka |
-| Čtení/odeslání zprávy | Jen vlastní konverzace; role nedává vstup do soukromých zpráv | Účastník a odpovídající týmový kontext | Účastník v kontextu vlastního týmu | Účastník v kontextu týmu svého dítěte |
-| Řízená oprava archivované sezóny | Ano s důvodem, novou revizí a přepočtem | Ne | Ne | Ne |
+| Dostupnost/omluva hráče | Oprava s důvodem | Přiřazení samo dostupnost hráče nepotvrzuje | Jen vlastní profil | Jen schválené dítě |
+| Vytvoření a publikování nominace | Ano | Přiřazený tým a jeho platní účastníci | Ne | Ne |
+| Zápis skutečné docházky a nastoupení | Ano | Přiřazený tým a platný účastník | Ne | Ne |
+| Zápis výsledku a statistik | Ano | Zápas přiřazeného týmu v otevřené sezóně | Ne | Ne |
+| Soutěžní tabulky a týmové statistiky | Ano | V kontextu přiřazených týmů | V kontextu vlastních týmů | V kontextu týmů dětí |
+| Individuální historie hráče | Ano | Jen oprávněný tým/sezóna, bez cizích osobních údajů | Vlastní profil | Schválené dítě |
+| Definice statistik, bodování a kritérií pořadí | Ano | Ne | Ne | Ne |
+| Čtení příspěvků a plateb | Všichni členové klubu | Jen vlastní; dítě jen s rodičovskou vazbou | STANDARD vlastní; CHILD nikdy | Vlastní a předpisy schváleného dítěte |
+| Zápis předpisu, částečné úhrady nebo storna | Ano s auditem | Ne | Ne | Ne |
+| Čtení notifikace/označení přečtení | Vlastní schránka | Vlastní schránka | Vlastní schránka; CHILD bez finančních oznámení | Vlastní schránka |
+| Čtení/odeslání zprávy | Aktivní účastník s oprávněným týmovým kontextem | Aktivní účastník v přiřazeném týmu | Aktivní účastník ve vlastním týmu | Aktivní účastník v týmu dítěte |
+| Řízená oprava archivovaných sportovních údajů | Ano s důvodem, novou revizí výsledku/statistik a přepočtem | Ne | Ne | Ne |
 
-Matice není seznam implementovaných endpointů. Rozhodující je kombinace **role + vztah k objektu + čas + stav**, ne pouhá kontrola role.
+Matice popisuje návrh, nikoli implementované endpointy. Rozhoduje **typ účtu + systémová role + vztah k objektu + čas + stav**. Omezení `CHILD` se uplatní před skládáním oprávnění. Správní role sama nezakládá účast v soukromé konverzaci.
+
+### Provoz jediným trenérem
+
+Není nutná samostatná osoba administrátora. Jediný provozovatel může používat jeden účet `STANDARD` s `ADMIN` a vlastním trenérským přiřazením. Založí klub, sezónu, vlastní tým a hráčské profily a spravuje sportovní i správní agendu. Hráči nemusejí mít účty a rodičovské vazby nemusí existovat. Účet dítěte se přidá teprve při splnění podmínek pro `CHILD`; nepřihlášený hráč takovou podmínku nemá.
+
+**Plánované prvotní nastavení v E1:** přihlášený účet `STANDARD` s `enabled = true` převezme správu pomocí jednorázového instalačního tokenu z prostředí provozovatele. Token nemá výchozí hodnotu a veřejná registrace ani pořadí registrací nenahrazuje jeho ověření. Transakce pod `FOR UPDATE` nad klubem ověří token, nedokončené nastavení a absenci prvního administrátora, přidělí `ADMIN` a uloží `club.setup_completed_at` a `setup_completed_by`. Po dokončení není token znovu použitelný ani při pozdějším odebrání role; souběžné převzetí smí uspět jen jednou. `CHILD` nesmí správu převzít. Token se neukládá do DB, auditu ani logů.
+
+Skeleton tento postup ani administraci zatím neposkytuje; veřejná registrace nadále vytváří `USER`. Samostatný provoz nepřidává práva ostatním účtům. Konverzace stále vyžaduje alespoň dva oprávněné účastníky; bez dalších účtů se tato funkce nepoužívá.
 
 ## Kontrola objektu na serveru
 
-Každá service operace nejdříve získá účet z `SecurityContext`, potom načte objekt dotazem omezeným povoleným rozsahem a ověří invariants před změnou v téže transakci. Clientem zaslané ID určuje cíl, nikdy identitu aktéra. Autor záznamu, účet rodiče a trenérova příslušnost se odvozují na serveru. DTO nepřijímá pole jako `recordedBy`, která by změnila vlastnictví.
+Service získá účet z `SecurityContext`, potom společný zámek klubu podle [databázového modelu](database.md#integrita-a-souběžné-operace): změna `FOR UPDATE`, čtení `FOR SHARE`. Znovu načte typ účtu, `enabled`, systémovou roli, vztahy a závislá data v téže transakci; nepovolený účet dál do klubového rozsahu nepustí. Klientem zaslané ID určuje cíl, nikdy identitu aktéra. Autora a čas doplňuje server; DTO nepřijímá pole jako `recordedBy`, která by měnila vlastnictví.
 
-1. **Hráč:** najdi `player_profiles.user_id = currentUser.id`; ověř jeho členství v týmu k datu události a případnou uzávěrku. Cizí `playerId` odmítni i když hráči patří stejnému týmu. Po přestupu má hráč vlastní historii, ale žádné nové soukromé informace původního týmu.
-2. **Rodič:** ověř roli `PARENT`, ověřený `guardian_link` platný dnes a profil dítěte. Potom ověř členství dítěte k datu cílové události. Zaniklá či neověřená vazba nedává přístup ani k historii. Pro historické dítě musí vazba opravňovat k aktuálnímu čtení a členství dítěte být platné v dotazovaném období.
-3. **Trenér:** spoj účet s `coach_profile` a ověř aktuální přiřazení k relevantnímu týmu. Pro změnu události s více týmy musí mít oprávnění ke všem dotčeným týmům; pokud je nemá, operaci provede admin. Čtení archivované sezóny vyžaduje zároveň přiřazení k týmu v dotazované sezóně; nově přijatý trenér nezíská automaticky osobní historii minulých sezón. Ukončené přiřazení neposkytuje další přístup.
-4. **Admin:** prověř roli i stav operace. Bypass týmového rozsahu není bypass validace, CSRF, historie, finančních limitů ani pravidla soukromých konverzací. Změny role, vazby rodiče, platby a archivované opravy mají povinný audit.
-5. **Komunikace:** při každém list/read/send ověř aktivní účastnictví v konverzaci a aktuální oprávnění k týmovému kontextu. Znalost conversation/message UUID ani historický zápis do participants nestačí po zániku vztahu. Přidat cizího rodiče do konverzace bez dítěte v týmu není možné.
-6. **Notifikace:** dotaz vždy obsahuje `recipient_id = currentUser.id`. Otevření cílového objektu se autorizuje znovu; původní notifikace nedává trvalý přístup ke zrušené vazbě. Po zániku vazby nevracej citlivý text doručení vztahující se k cizímu dítěti/týmu.
+1. **Účet dítěte:** nejdříve ověř platnou vazbu na aktivní rodičovský účet `STANDARD` a povolenou operaci. Blokovaný `CHILD` nepokračuje do klubového rozsahu. Všechny finanční cesty odmítni i při vlastním `person_id`.
+2. **Hráč:** spoj `users.person_id` s `player_profiles.person_id`. Pro týmovou operaci ověř členství k datu události a uzávěrku. Cizí `playerId` odmítni i ve stejném týmu, pokud účet nemá další platné oprávnění. Po přestupu zůstává vlastní historie přístupná, nové soukromé informace původního týmu nikoli.
+3. **Rodič:** spoj `users.person_id = guardian_links.guardian_person_id`, ověř `STANDARD`, schválení a neodvolaný vztah ke konkrétnímu dítěti. Žádná hodnota `PARENT` v systémové roli není potřebná. Ověř členství dítěte v období cílové události. Přehled Moje děti i jeho počty používají tutéž vazbu. Odvolaný vztah sám nedává přístup ani k historii dítěte.
+4. **Trenér:** spoj účet s `coach_team_memberships.coach_user_id` a ověř aktuální přiřazení k relevantnímu týmu. Změna společné akce vyžaduje všechny dotčené týmy, nebo správní oprávnění. Starší sezóna vyžaduje aktuální oprávnění k týmu a odpovídající historické přiřazení; nově přijatý trenér nezíská automaticky osobní historii minulých sezón. Ukončené přiřazení samo další přístup nedává.
+5. **Finance:** nejdříve odmítni `CHILD`. U vlastního předpisu porovnej `fee_assessments.person_id = currentUser.person_id`. Předpis dítěte zpřístupni rodiči přes jeho platnou vazbu k hráčskému profilu příslušné osoby, nebo `ADMIN`. Úhradu autorizuj přes `fee_assessment_id`; samotné UUID přístup nezakládá. Zápis a storno smí jen `ADMIN`; součet platných úhrad nesmí překročit předpis.
+6. **Administrátor:** ověř `STANDARD`, `ADMIN` i přípustný stav operace. Správní rozsah neruší validaci, CSRF, historii, finanční limity ani pravidla konverzací. Změny typu účtu, role, rodičovské vazby, platby a archivované opravy mají povinný audit. Administrátor může spravovat i vlastní trenérské přiřazení.
+7. **Komunikace:** každý list/read/send vyžaduje aktivní `conversation_participants` a oprávnění k týmovému kontextu. Zprávy zpřístupni až od `joined_at`. UUID ani historická účast nestačí po zániku posledního oprávnění. Rodič bez vazby na dítě v týmu se nepřidá. Odchod nastaví `left_at`; ukončená účast se znovu neotevírá, další komunikace používá novou konverzaci.
+8. **Notifikace:** dotaz na `notification_deliveries` vždy omezuje `recipient_id = currentUser.id`; u `CHILD` navíc vyloučí finanční typy i souhrnné počty. Finanční oznámení se dítěti nevytvářejí ani nepřidělují při pozdějším přepočtu adresátů. Otevření cíle se autorizuje znovu. Oznámení neobsahuje soukromé zprávy ani citlivé údaje dítěte; doručení neobnovuje odvolaná práva.
 
-Listy, hledání, exporty, počty výsledků i stránky detailu používají stejné filtrování. Nefiltruje se teprve po načtení všech klubových záznamů do frontendu. DTO vrací jen povolená pole: týmový kalendář nepotřebuje datum narození či telefon všech hráčů. Finanční stav se nevrací ve všeobecném hráčském seznamu.
+Listy, hledání, exporty, počty a detaily používají stejné filtrování. Nefiltruje se až po načtení všech dat do frontendu. DTO vrací jen povolená pole: kalendář nepotřebuje datum narození či telefon všech hráčů a finanční stav nepatří do obecného hráčského seznamu. Dashboard ani agregace nesmějí dítěti nepřímo prozradit finanční částky nebo počty oznámení.
 
-Session obsahuje nejméně identitu, ale role a citlivé vazby se ověřují čerstvě. Administrátorské odebrání role musí invalidovat všechny session dotčeného účtu nebo ověřit aktuální roli z DB při každém privilegovaném requestu; samotné staré `GrantedAuthority` v session nestačí. Změna rodičovské vazby a členství musí platit okamžitě při dalším requestu. Kontrola verze zabraňuje přepsání souběžné nominace či dostupnosti.
+Session obsahuje identitu, ale typ účtu, role a citlivé vazby se ověřují čerstvě. Odebrání `ADMIN` musí invalidovat session nebo se aktuální role ověří z DB při každém privilegovaném požadavku. Zánik trenérského přiřazení a rodičovské vazby platí při dalším požadavku i se starou session; jiné platné oprávnění se posoudí samostatně. Zánik poslední potřebné rodičovské vazby u `CHILD` navíc blokuje účet a invaliduje jeho session. Kontrola `version` brání přepsání zastaralým formulářem, nenahrazuje autorizaci.
 
 ## Negativní akceptační scénáře navazujících etap
 
-Tyto scénáře musejí vzniknout jako backend integrační testy nad Testcontainers a jako odpovídající frontend testy chybových stavů. Před dokončením dané etapy jsou to **plánované testy**, nikoli výsledky skeletonu.
+Jde o **plánované testy**, nikoli výsledky skeletonu. Vzniknou jako backend integrační testy nad Testcontainers a odpovídající frontend testy. Pokud scénář uvádí jen trenéra, hráče či rodiče, účet nemá další oprávnění, které by pokus dovolovalo.
 
 | ID | Pokus | Očekávaný výsledek |
 | --- | --- | --- |
-| A01 | Registrovat `role: ADMIN` nebo zadat vlastní vazbu na hráče | Účet pouze USER, bez klubových vazeb; žádná eskalace |
-| A02 | USER zkusí libovolný klubový seznam | 403, žádná klubová data |
-| A03 | Hráč A změní dostupnost hráče B změnou UUID | 404 nebo 403 dle viditelnosti objektu; nulová změna a žádný outbox |
-| A04 | PARENT bez vazby / s neověřenou či ukončenou vazbou otevře dítě | 404, nezveřejnit profil, příspěvky, historii ani počty |
-| A05 | Rodič dítěte A získá fee/payment UUID dítěte B | 404, žádné finanční údaje |
-| A06 | Trenér týmu A publikuje nominaci týmu B | 404/403, nulový zápis; role COACH sama nestačí |
-| A07 | Trenér A změní společnou událost týmů A+B bez přiřazení k B | 403, transakce neprovede částečnou změnu |
-| A08 | Ukončený trenér použije stále platnou session | Nový přístup odmítnut; aktuální přiřazení se ověřuje na serveru |
-| A09 | Hráč nebo rodič zapíše platbu, výsledek, docházku či nominaci | 403, finanční/doménový stav beze změny |
-| A10 | Trenér načte příspěvky svěřence | 404, trenér vidí jen své vlastní předpisy |
-| A11 | Účastník A čte cizí konverzaci nebo přidá neoprávněného rodiče | 404/403; admin také nečte soukromou konverzaci bez účasti |
-| A12 | Uživatel označí cizí notifikaci jako přečtenou | 404, cizí `read_at` beze změny |
-| A13 | Rodiči zanikne vazba po vydání notifikace a zkusí cílový detail | 404; historické doručení neobchází autorizační kontrolu |
-| A14 | Dva admin požadavky současně alokují tutéž platbu | Jedna uspěje, druhá 409/validace; čistá suma nepřekročí platbu/předpis |
-| A15 | Trenér mění archivovanou sezónu nebo změněnou verzi nominace | 403, respektive 409; historie se nepřepisuje |
-| A16 | Admin odebere COACH roli, uživatel použije starou session | Další privilegovaný request je odmítnut, i při původní session autoritě |
-| A17 | Chybí CSRF, žádná session, nepovolený origin | 403 pro CSRF, 401 pro autentizaci, origin nedostane povolený credentialed CORS; žádný zápis |
-| A18 | Zápis statistiky cizího sportu nebo hráče bez skutečné účasti | 400/409 podle validace; žádná statistika a žádný přepočet |
+| A01 | Registrovat `role: ADMIN`, vlastní `accountType`, cizí person/player ID nebo rodičovskou vazbu | Běžný USER bez přidělení klubových práv a bez připojení cizí osoby |
+| A02 | USER bez klubových vztahů otevře týmový seznam nebo cizí osobu | 403, případně 404 pro cizí objekt; vlastní povolené údaje zůstávají přístupné |
+| A03 | Hráč A změní dostupnost hráče B změnou UUID | 404/403 dle viditelnosti, nulový zápis a žádné oznámení |
+| A04 | Účet bez schválené nebo s odvolanou vazbou otevře dítě | 404; žádný profil, příspěvky, historie ani počty dítěte |
+| A05 | Rodič dítěte A získá UUID předpisu či úhrady dítěte B | 404, žádné cizí finanční údaje |
+| A06 | Trenér A publikuje nominaci týmu B | 404/403, nulový zápis; přiřazení k A neopravňuje spravovat B |
+| A07 | Trenér A změní společnou akci A+B bez přiřazení k B | 403, žádná částečná změna |
+| A08 | Účet po ukončení posledního trenérského přiřazení použije platnou session | Další trenérský přístup odmítnut; vztah se kontroluje na serveru |
+| A09 | Účet pouze s hráčskou nebo rodičovskou vazbou zapíše platbu, výsledek, docházku či nominaci | 403, finanční a sportovní stav beze změny |
+| A10 | Trenér čte příspěvky svěřence bez rodičovské vazby | 404; samotné trenérské přiřazení dovoluje jen vlastní finance |
+| A11 | Účastník čte cizí konverzaci nebo přidá neoprávněného rodiče; ADMIN bez účasti čte soukromé zprávy | 404/403; správní role automatický vstup nedává |
+| A12 | Uživatel označí cizí oznámení jako přečtené | 404; cizí `read_at` beze změny |
+| A13 | Rodiči zanikne poslední vazba po doručení oznámení a otevře detail dítěte | 404; historické doručení neobchází autorizaci |
+| A14 | Dva ADMIN požadavky souběžně připíšou úhrady překračující zůstatek | Zámek operace seřadí; překračující úhrada se odmítne, platný součet nepřekročí předpis |
+| A15 | Trenér opraví archivovaná sportovní data nebo odešle zastaralou verzi nominace | 403, respektive 409; stav se nezmění |
+| A16 | ADMIN odebere trenérské přiřazení nebo ADMIN jinému účtu; tento použije starou session | Privilegovaný požadavek odmítnut, pokud jej nedovoluje jiné aktuální oprávnění |
+| A17 | Chybí CSRF, session nebo je origin nepovolený | 403 pro CSRF, 401 pro autentizaci; nepovolený origin nedostane credentialed CORS a změna se neprovede |
+| A18 | Zápis statistiky cizího sportu, neplatné definice pro zápas nebo hodnoty hráče bez skutečného nastoupení | 400/409; žádná hodnota ani přepočet |
+| A19 | USER si přidělí ADMIN nebo se sám přiřadí jako trenér | 403; správa vlastního účtu klubová práva nevytvoří |
+| A20 | Rodič dosadí cizí `playerId` při vytvoření vazby nebo v Moje děti | Žádná automatická vazba; cizí detail/počty 404 a nepatří do seznamu dětí |
+| A21 | CHILD načte vlastní předpis, platbu, zůstatek, součet nebo finanční export přímým API | 403/404 bez finančních údajů; shodné vlastní `person_id` není výjimka |
+| A22 | CHILD načte FEE oznámení přímo přes UUID, schránku nebo její počet; označí je jako přečtené | Žádný finanční obsah, doručení ani počet; přímý přístup odmítnut a nic se nezmění |
+| A23 | CHILD změní typ účtu, datum narození, systémovou roli, osobu nebo rodičovské vazby | 403; žádná eskalace ani obcházení omezeného účtu |
+| A24 | Aktivovat CHILD bez vlastního hráčského profilu nebo bez schválené vazby na aktivní STANDARD rodičovský účet | Aktivace odmítnuta; pouhá osoba rodiče bez účtu nestačí |
+| A25 | Poslední potřebná rodičovská vazba CHILD zanikne nebo se poslední STANDARD rodič deaktivuje; dítě použije starou session či nové přihlášení | `enabled = false`, session invalidovaná; žádný další klubový přístup ani při zastaralé session autoritě |
+| A26 | CHILD se nastaví jako ADMIN, trenér nebo oprávněný zástupce kteréhokoli hráče | Neplatný stav odmítnut i při administrátorském zápisu |
+| A27 | CHILD převezme prvotní správu; STANDARD použije chybný token nebo opakuje převzetí po dokončení | Zamítnuto; role a stav nastavení se nezmění |
 
-Pozitivní protějšky musejí ověřit rodiče se dvěma dětmi v různých týmech, hráče bez účtu spravovaného rodičem, trenéra přiřazeného více týmům a admina, který může oprávněně provést klubovou správu. Při akceptaci je třeba také ověřit mobilní rozhraní, že po 401 přechází na přihlášení, po 403/404 ukazuje srozumitelnou chybu a při výpadku API neoznačuje účet za běžně odhlášený.
+Pozitivní protějšky ověří rodiče se dvěma dětmi, dítě s více zástupci, hráče bez účtu se zástupcem i bez něj, trenéra více týmů a kombinaci trenérské a rodičovské vazby. Samostatný scénář převezme prvotní správu platným tokenem a použije jediný STANDARD/ADMIN účet s vlastním trenérským přiřazením a profily hráčů bez dalších účtů či rodičů. Dva souběžné pokusy o převzetí pod zámkem musejí dát právě jeden úspěch. Běžný USER přitom vidí jen vlastní povolená data. Platný CHILD čte vlastní sportovní údaje a zadává dostupnost, zatímco finance vidí rodič a ADMIN. Ztráta jedné z více platných rodičovských vazeb dítě neblokuje; ztráta poslední ano. Po 401 UI nabídne přihlášení, po 403/404 srozumitelnou chybu a výpadek API nezamění za odhlášení.
