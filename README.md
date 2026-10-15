@@ -90,7 +90,7 @@ Na macOS může Testcontainers potřebovat `export DOCKER_HOST=unix://$HOME/.doc
 ## Dokumentace a týmová práce
 
 - [Architektura a bezpečnost skeletonu](docs/architecture.md), [výchozí problémy šablony](docs/baseline.md).
-- [Požadavky a akceptace](docs/requirements.md), [doménový model](docs/domain-model.md), [návrh databáze](docs/database-design.md).
+- [Požadavky a akceptace](docs/requirements.md), [doménový model](docs/domain-model.md), [návrh databáze](docs/database.md), [DBML](docs/sport-club.dbml) a [ER diagram](docs/ERD%20diagram.svg).
 - [Oprávnění](docs/authorization.md), [etapy implementace](docs/roadmap.md), [uživatelská příručka](docs/user-guide.md).
 - [Nasazení](docs/deployment.md), [výsledky ověření](docs/verification.md), [CONTRIBUTING](CONTRIBUTING.md).
 

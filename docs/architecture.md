@@ -30,6 +30,6 @@ V1 vytváří pouze `users` podle skutečné entity. Flyway je aktivní ve vývo
 
 ## Navazující architektura — návrh, dosud neimplementováno
 
-Jednotlivé domény rozšiřují stejné vrstvy. Autorizační pravidla běží v transakčních službách a omezují také dotazy podle týmu a vztahu rodič–hráč. Notifikace mají databázové události/outbox a opakovatelný scheduler; komunikace má vlastní konverzace a zprávy. Výsledky a agregace používají verzovaná pravidla soutěže, statistiky mají administrátorské datové definice. Podrobnosti v domain-model, database-design a authorization.
+Jednotlivé domény rozšiřují stejné vrstvy. Autorizační pravidla běží v transakčních službách a omezují také dotazy podle týmu a vztahu rodič–hráč. Schránkové notifikace a doručení se zapisují transakčně s doménovou změnou, splatnosti hlídá idempotentní scheduler; komunikace má vlastní konverzace a zprávy. Výsledky a agregace používají verzovaná pravidla soutěže, statistiky mají administrátorské datové definice. Jedna instalace podporuje více sportů, každý tým má právě jeden sport. Účty hráčů a rodičů jsou volitelné; samostatný trenér může být jediným uživatelem se správou instalace. Dětské přihlášení vyžaduje schváleného rodiče a typ CHILD s výslovným zákazem financí. Podrobnosti v [doménovém modelu](domain-model.md), [databázovém modelu](database.md) a [autorizaci](authorization.md).
 
 Frontendová ochrana dashboardu je navigační pomoc; skutečné oprávnění ověřuje server. Doménový ERD není již nasazené schéma a roadmapa není seznam hotových funkcí.
