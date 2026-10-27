@@ -1,6 +1,6 @@
 # Návrh databáze
 
-**Stav:** implementovaná databáze skeletonu obsahuje pouze `users` z Flyway V1. Klubové tabulky, jejich omezení a níže uvedené postupy jsou návrhem navazujících etap. DBML ani ER diagram nejsou spuštěná migrace.
+**Stav E0 + P1:** V1 `users` se nemění. V2 přidává `persons`, `club`, `audit_log` a `sports`, rozšiřuje users a bezpečně převádí staré role. Živý rozsah je tedy pět tabulek; dalších 33 z cílového DBML zůstává návrhem. P1 je pouze část E1. DBML ani ER diagram nejsou automaticky spuštěná migrace a samy neprokazují funkční API nebo testy.
 
 Úplný a jediný aktuální návrh tabulek a invariantů je v [databázovém modelu](database.md), jeho strojově čitelná podoba v [sport-club.dbml](sport-club.dbml) a přehled vztahů v [ER diagramu](ERD%20diagram.svg). Tento rozcestník nahrazuje dřívější paralelní návrh, aby implementace nevycházela ze dvou různých schémat.
 
@@ -23,7 +23,7 @@ Doménové operace dodržují společný zamykací postup z [modelu](database.md
 
 ## Implementační a migrační postup
 
-Nové Flyway soubory vznikají v `backend/src/main/resources/db/migration/` spolu s implementací služby, autorizačními a integračními testy. V1 ani již nasazené migrace se nepřepisují. Přechod ze současných pěti hodnot rolí na systémové `USER/ADMIN`, omezení `CHILD` a odvozené vztahy musí explicitně převést dosavadní data; přidání hodnoty enumu samo nepřidává oprávnění.
+Nové Flyway soubory vznikají v `backend/src/main/resources/db/migration/` spolu s implementací služby, autorizačními a integračními testy. V1 ani již nasazené migrace se nepřepisují. V2 převádí původní pětici rolí na `USER/ADMIN`, zachovává UUID/hashe/časy a ukládá neveřejné legacy_role. Neúplné účty mají přechodně nullable person_id a vlastní onboarding bez vymyšlených osobních údajů. Existující ADMIN uzavírá setup. Odvozené týmové vztahy, person-link a aktivace CHILD nejsou P1; vyžadují P2/P3. NOT NULL pro person_id přijde až po ověřeném backfillu v samostatné migraci.
 
 Každá etapa ověří prázdnou databázi i upgrade starší verze nad PostgreSQL Testcontainers. Hibernate zůstává `ddl-auto=validate`, bez automatického baseline. Vývojová demonstrační data ani známá hesla nepatří do produkční migrace. Zálohování a zkušební obnovu popisují [model](database.md#zálohování-a-obnova) a [nasazení](deployment.md).
 

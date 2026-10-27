@@ -1,12 +1,4 @@
 package cz.jpmad.springprojecttemplate.model.user.enums;
 
-/**
- * Výčet rolí uživatelů v systému.
- */
-public enum Role {
-    ADMIN,
-    USER,
-    COACH,
-    PLAYER,
-    PARENT
-}
+/** Systémové role. Trenérská a rodičovská oprávnění budou vyplývat z ověřených vazeb. */
+public enum Role { ADMIN, USER }

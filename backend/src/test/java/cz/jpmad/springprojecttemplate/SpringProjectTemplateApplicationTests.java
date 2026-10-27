@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** Ověření skutečného servlet context path, filtrů, session a migrace nad čistou PostgreSQL. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "server.servlet.session.cookie.secure=false")
+        properties = {"server.servlet.session.cookie.secure=false", "app.club.setup-token="})
 @Testcontainers
 class SpringProjectTemplateApplicationTests {
 
@@ -95,7 +95,7 @@ class SpringProjectTemplateApplicationTests {
         // Staré ID již nedává přístup a původní CSRF token byl při loginu zrušen.
         assertError(withCookie("/auth/me", originalId), 401, "UNAUTHORIZED");
         assertError(browser.post("/auth/logout", Map.of(), loginCsrf), 403, "FORBIDDEN");
-        assertError(browser.get("/actuator/metrics"), 403, "FORBIDDEN");
+        assertError(browser.get("/actuator/metrics"), 403, "PROFILE_INCOMPLETE");
 
         String authenticatedId = browser.sessionId();
         var logout = browser.post("/auth/logout", Map.of(), browser.csrf());
@@ -190,6 +190,22 @@ class SpringProjectTemplateApplicationTests {
                 .header("Authorization", "Basic dGVzdDp0ZXN0").GET().build(), HttpResponse.BodyHandlers.ofString());
         assertError(noBasic, 401, "UNAUTHORIZED");
         assertThat(noBasic.headers().firstValue("www-authenticate")).isEmpty();
+    }
+
+    @Test
+    void setupIsUnavailableWithoutPrivateConfigurationEvenForCompleteAccount() throws Exception {
+        var browser = new Browser();
+        var account = Map.of("username", "no-setup-" + UUID.randomUUID(), "password", "test-password");
+        assertThat(browser.post("/auth/register", account, browser.csrf()).statusCode()).isEqualTo(201);
+        assertThat(browser.post("/auth/login", account, browser.csrf()).statusCode()).isEqualTo(200);
+        assertThat(browser.post("/me/person", Map.of("firstName", "Test", "lastName", "Member"), browser.csrf()).statusCode())
+                .isEqualTo(201);
+        var status = mapper.readTree(browser.get("/club/setup-status").body());
+        assertThat(status.path("completed").asBoolean()).isFalse();
+        assertThat(status.path("available").asBoolean()).isFalse();
+        assertError(browser.post("/club/setup", Map.of("token", "arbitrary-test-token"), browser.csrf()),
+                503, "SETUP_UNAVAILABLE");
+        assertThat(mapper.readTree(browser.get("/auth/me").body()).path("role").asText()).isEqualTo("USER");
     }
 
     private void assertError(HttpResponse<String> response, int status, String code) throws Exception {

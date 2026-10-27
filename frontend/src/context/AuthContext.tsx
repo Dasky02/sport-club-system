@@ -2,31 +2,35 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, authLogin, authLogout, getMe } from "../api/api";
+import { getAccountContext } from "../api/club";
 import { mapErrorToMessage } from "../api/errorMapper";
-import type { LoginRequest } from "../api/types";
+import type { LoginRequest, UserResponse } from "../api/types";
 import type { AuthContextValue, AuthState } from "./AuthContextTypes";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
-    user: null, loading: true, initialized: false, sessionError: null,
+    user: null, context: null, loading: true, initialized: false, sessionError: null,
   });
   const sequence = useRef(0);
 
-  const loadUser = useCallback(async (ticket: number) => {
+  const loadUser = useCallback(async (ticket: number, authenticatedUser?: UserResponse) => {
+    let user = authenticatedUser ?? null;
     try {
-      const user = await getMe();
+      user ??= await getMe();
+      if (ticket !== sequence.current) return;
+      const context = await getAccountContext();
       if (ticket === sequence.current) {
-        setState({ user, loading: false, initialized: true, sessionError: null });
+        setState({ user, context, loading: false, initialized: true, sessionError: null });
       }
     } catch (error: unknown) {
       if (ticket !== sequence.current) return;
       if (error instanceof ApiError && error.status === 401) {
-        setState({ user: null, loading: false, initialized: true, sessionError: null });
+        setState({ user: null, context: null, loading: false, initialized: true, sessionError: null });
       } else {
         setState((previous) => ({
-          ...previous, loading: false, initialized: true, sessionError: mapErrorToMessage(error),
+          ...previous, user, context: null, loading: false, initialized: true, sessionError: mapErrorToMessage(error),
         }));
       }
     }
@@ -49,14 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((previous) => ({ ...previous, loading: true }));
     try {
       const user = await authLogin(request);
-      if (ticket === sequence.current) {
-        setState({ user, loading: false, initialized: true, sessionError: null });
-      }
+      // Login již uspěl; selhání následného kontextu hlásí ověření session, ne chybné heslo.
+      await loadUser(ticket, user);
     } catch (error: unknown) {
       if (ticket === sequence.current) setState((previous) => ({ ...previous, loading: false }));
       throw error;
     }
-  }, []);
+  }, [loadUser]);
 
   const logout = useCallback(async () => {
     const ticket = ++sequence.current;
@@ -64,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authLogout();
       if (ticket === sequence.current) {
-        setState({ user: null, loading: false, initialized: true, sessionError: null });
+        setState({ user: null, context: null, loading: false, initialized: true, sessionError: null });
       }
     } catch (error: unknown) {
       // Výpadek nezaručuje invalidaci serverové session; uživatele lokálně nevydáváme za odhlášeného.

@@ -18,6 +18,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CsrfFilter;
+import cz.jpmad.springprojecttemplate.service.user.CurrentAccountService;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
@@ -75,7 +77,8 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                            HttpSessionCsrfTokenRepository csrfRepository,
                                            SecurityContextRepository contextRepository,
-                                           SessionAuthenticationStrategy sessionStrategy) throws Exception {
+                                           SessionAuthenticationStrategy sessionStrategy,
+                                           CurrentAccountService accounts) throws Exception {
         return http
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository))
                 .cors(Customizer.withDefaults())
@@ -87,11 +90,12 @@ public class SecurityConfig {
                         .requireExplicitSave(true))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .sessionAuthenticationStrategy(sessionStrategy))
+                .addFilterBefore(new FreshAccountFilter(accounts, jsonMapper), CsrfFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/csrf", "/info/**", "/actuator/health").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/actuator/**", "/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/actuator/**", "/admin/**", "/sports", "/sports/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, exception) ->

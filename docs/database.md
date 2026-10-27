@@ -1,8 +1,16 @@
 # Databáze sportovního klubu
 
-Tento dokument a [DBML](sport-club.dbml) jsou **plánovaný doménový návrh pro PostgreSQL 16, nikoli implementované schéma nebo funkce skeletonu**. Jedna instalace spravuje jeden klub a více týmových sportů uložených v databázi. Povinné demonstrační scénáře používají fotbal i basketbal v téže aplikaci. Funkční rozsah původního ODT a aktuální stav implementace sledují [požadavky](requirements.md).
+Tento dokument a [DBML](sport-club.dbml) popisují **cílový doménový návrh pro PostgreSQL 16**. P1 implementuje jen V2: `persons`, `club`, `audit_log`, `sports` a rozšíření existujících users; zbývajících 33 tabulek, týmové vztahy a veškeré sportovní/finanční workflow jsou plánované. V1 se nemění. P1 je pouze část E1 a neznamená dokončení níže uvedené domény. Jedna instalace spravuje jeden klub a více týmových sportů uložených v databázi. Povinné demonstrační scénáře používají fotbal i basketbal v téže aplikaci. Funkční rozsah původního ODT a aktuální stav implementace sledují [požadavky](requirements.md).
 
-Sporty, formáty zápasů, bodování, kritéria pořadí a definice statistik bude administrátor nastavovat v administračním rozhraní. Přidání dalšího sportu nesmí vyžadovat změnu kódu, ruční SQL, úpravu schématu ani sportovní seed skript. Jde o ukládání konfigurace do navržených tabulek přes backend. Použitá pravidla zůstávají chráněná kvůli historii; nová pravidla administrátor vytvoří jako nový formát, ročník nebo definici. Následující popis stanovuje pravidla budoucí implementace; doménové migrace, API i UI se dodají v navazujících etapách.
+Sporty již administrátor spravuje v P1. Formáty zápasů, bodování, kritéria pořadí a definice statistik bude nastavovat v navazujících administračních obrazovkách. Přidání dalšího sportu nesmí vyžadovat změnu kódu, ruční SQL, úpravu schématu ani sportovní seed skript. Jde o ukládání konfigurace do navržených tabulek přes backend. Použitá pravidla zůstávají chráněná kvůli historii; nová pravidla administrátor vytvoří jako nový formát, ročník nebo definici. Následující popis stanovuje pravidla budoucí implementace; doménové migrace, API i UI se dodají v navazujících etapách.
+
+## Přechodný implementovaný rozsah P1
+
+`users.role` je USER/ADMIN, `account_type` STANDARD/CHILD a enabled se kontrolují čerstvě. V2 zachová UUID, hashe a časy, staré klubové role mapuje na USER bez domýšlení vztahů; původní hodnotu uchová neveřejné legacy_role. `users.person_id` je přechodně nullable UNIQUE FK. PENDING účet může dokončit pouze vlastní osobu a nemá klubové schopnosti. P1 nedovoluje vznik/aktivaci CHILD a tento typ blokuje; povinný hráčský/rodičovský model doplní P3.
+
+Dostupné jsou vlastní GET/POST `/me/person`, `/me/context`, stav a provedení jednorázového setupu a ADMIN seznam/vytvoření/změna sportů. Kód sportu je neměnný, mazání neexistuje. Obecný CRUD osob, účtů, person-link a změny rolí jiných uživatelů jsou až P2/P3. Konkrétní DTO a stavové kódy uvádí [API kontrakt](api-contract.md); provedené běhy [ověření](verification.md).
+
+NOT NULL pro person_id není součástí V2: vyžaduje pozdější ověřený backfill a novou migraci. Následující přehled je cílový model, ne seznam 38 nasazených tabulek.
 
 ## Přehled tabulek
 
@@ -68,13 +76,13 @@ Sloupec `users.role` rozlišuje systémové role `USER` a `ADMIN`. Trenérská, 
 
 Vztahy se u účtu STANDARD mohou kombinovat: trenér může být také rodičem nebo administrátorem na **jediném účtu a pod jedinou osobou**. Samostatný administrátorský účet ani druhá identita nejsou podmínkou trenérské správy. Jeden provozovatel může jako ADMIN zakládat a spravovat své týmy, jejich hráčské profily a vlastní trenérská přiřazení. Ke správě hráče nepotřebuje vztah rodič–dítě. Běžnému trenérovi samotné přiřazení nedává přístup k financím svěřence; k rodičovskému přístupu potřebuje schválenou vazbu. ADMIN má finanční správu z administrátorského oprávnění. Uživatel STANDARD bez klubových vztahů nevidí týmové údaje, ale může číst vlastní příspěvky. Omezení CHILD má vždy přednost.
 
-**Plánované prvotní nastavení E1:** veřejná registrace vždy vytvoří USER a první registrant se automaticky nestává administrátorem. Provozovatel se přihlásí povoleným účtem STANDARD a provede jednorázový setup s instalačním tokenem ze soukromého prostředí nasazení. Token nemá výchozí hodnotu a neukládá se do DB ani logů. Pod zámkem `club FOR UPDATE` server ověří token, dosud nedokončený setup a absenci prvního administrátora; atomicky přidělí tomuto účtu ADMIN, zapíše `club.setup_completed_at`, `setup_completed_by` a audit. Obě setup pole jsou buď prázdná, nebo vyplněná společně. Souběžný či opakovaný setup nesmí založit dalšího admina. CHILD setup provést nemůže.
+**Implementovaný setup P1:** veřejná registrace vždy vytvoří USER a první registrant se automaticky nestává administrátorem. Provozovatel se přihlásí povoleným účtem STANDARD a provede jednorázový setup s instalačním tokenem ze soukromého prostředí nasazení. `CLUB_SETUP_TOKEN` je soukromá konfigurace backendu; prázdná jej vypíná. Token nemá výchozí hodnotu a neukládá se do DB ani logů. Pod zámkem `club FOR UPDATE` server ověří token, dosud nedokončený setup a absenci prvního administrátora; atomicky přidělí tomuto účtu ADMIN, zapíše `club.setup_completed_at`, `setup_completed_by` a audit. Obě setup pole jsou buď prázdná, nebo vyplněná společně. Souběžný či opakovaný setup nesmí založit dalšího admina. CHILD setup provést nemůže.
 
-Jediný provozovatel následně pod tímto účtem založí sport, sezónu a tým a přiřadí sebe jako trenéra; nepotřebuje druhého uživatele, samostatnou osobu administrátora ani rodičovský vztah ke svěřencům. Změna role se projeví v aktuálním serverovém vyhodnocení session. Tento onboarding je součástí plánu, zatím neexistuje v technickém skeletonu.
+Jediný provozovatel následně pod tímto účtem založí sport, sezónu a tým a přiřadí sebe jako trenéra; nepotřebuje druhého uživatele, samostatnou osobu administrátora ani rodičovský vztah ke svěřencům. Změna role se projeví v aktuálním serverovém vyhodnocení session. P1 implementuje převzetí správy a sporty; založení sezóny/týmu a vlastní trenérské přiřazení jsou dosud plán P2.
 
 Rodičovské vazby schvaluje administrátor a lze je odvolat. Odvolání ukončí oprávnění k dítěti, pokud neexistuje jiný platný důvod přístupu.
 
-Skeleton používá role `USER`, `ADMIN`, `COACH`, `PLAYER` a `PARENT` a typy STANDARD/CHILD zatím neimplementuje. Přechod na oprávnění z vazeb i omezené dětské účty vyžadují nové migrace, serverové kontroly, UI a testy. Podmínky přístupu podle aktuální role, typu účtu, vztahů a stavu záznamu popisuje [autorizace](authorization.md).
+Původní E0 používala pět hodnot rolí. P1 je migruje na USER/ADMIN a přidává STANDARD/CHILD, ale CHILD zůstává blokovaný. Přechod na oprávnění z týmových a rodičovských vazeb i funkční dětské účty vyžadují P2/P3 s novými migracemi, serverovými kontrolami, UI a testy. Podmínky přístupu podle aktuální role, typu účtu, vztahů a stavu záznamu popisuje [autorizace](authorization.md).
 
 ## Týmy a sezóny
 
@@ -106,7 +114,7 @@ Požadavek smí měnit jen povolenou skupinu polí. Autora a čas doplní server
 
 ### Soupisky, přestupy a změny termínů
 
-Při založení nebo zveřejnění akce se účastníci vytvoří ze soupisky platné k jejímu začátku. Pozdější příchod hráče do týmu je automaticky nepřidá. Hráči s více členstvími se pro akci vybere jeden tým.
+Při první publikaci akce se účastníci vytvoří ze soupisky platné k jejímu začátku. Pozdější příchod hráče do týmu je automaticky nepřidá; doplnění je výslovná operace s validací členství a oprávnění. Hráči s více členstvími se pro akci vybere jeden tým. Toto upřesnění navazující implementace je zachyceno v [pracovním plánu](implementation-plan.md).
 
 Budoucího účastníka lze před začátkem akce vyřadit pomocí `withdrawn_at` a důvodu. Nesmí už mít zapsanou docházku, nastoupení ani statistiky. Odpověď a nominace zůstanou uložené kvůli historii, ale účastník se dále nepovažuje za aktivního. Pokud už byla nominace zveřejněná, změna se oznámí. Prázdný záznam budoucí účasti lze také odstranit. Vrácení vyřazeného účastníka je možné jen jako odůvodněná administrátorská oprava.
 

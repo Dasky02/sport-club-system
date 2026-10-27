@@ -1,6 +1,10 @@
 # Autentizace a návrh oprávnění
 
-**Stav:** skeleton poskytuje registraci, přihlášení, aktuální účet, odhlášení a technické informace. Jeho enum stále obsahuje `USER`, `ADMIN`, `COACH`, `PLAYER` a `PARENT`. Níže je **cílový návrh**, nikoli hotové klubové API: `users.role` bude pouze `USER` nebo `ADMIN`, `users.account_type` rozliší `STANDARD` a `CHILD` a klubová oprávnění se odvodí z vazeb podle [databázového modelu](database.md). Převod existujících účtů vyžaduje novou migraci a autorizační testy. Tato dokumentace chování skeletonu nemění.
+**Stav E0 + P1:** registrace, přihlášení, aktuální účet a kontext, vlastní osoba, bezpečný klubový setup a správa sportů jsou implementovaný rozsah P1. V2 převádí systémové role na `USER/ADMIN`, přidává `STANDARD/CHILD`, enabled a dočasně nullable person. Aktuální účet se ověřuje i při staré session. P1 je jen část E1; všechny týmové, hráčské, rodičovské, finanční a komunikační operace níže jsou **cílový návrh P2–P9**, nikoli dostupné API. Provedené testy zaznamenává [ověření](verification.md).
+
+P1 dovoluje neúplnému účtu jen povolený auth/onboarding rozsah a prázdný GET `/me/context` a nedává mu klubové schopnosti. Dokončený STANDARD/USER má v `/me/context` prázdné capabilities. Dokončený ADMIN má pouze `MANAGE_CLUB` a `MANAGE_SPORTS`; žádné týmové či finanční schopnosti se předem nevytvářejí. `/me/person` pracuje pouze se session vlastníka, nepřipojuje cizí osobu. `/sports` vyžaduje aktuální ADMIN; setup vlastní dokončenou osobu, enabled STANDARD a platný soukromý token. Obecná správa jiných osob, účtů, rolí a person-link dosud neexistuje.
+
+**CHILD je v P1 fail-closed:** nový účet tohoto typu ani aktivace nejsou dostupné a případný uložený CHILD nemá přístup ani přes starou session. Plný rodičovský model se zavede až s P3 a jeho negativními testy; samotné pole account_type ještě není funkční dětské přihlášení.
 
 ## Přihlašovací základ
 
@@ -12,7 +16,7 @@ Chybějící/neplatná session vrací JSON 401, nedovolená operace JSON 403 ve 
 
 ## Systémová role, typ účtu a klubové vztahy
 
-Účet má jednu systémovou roli `USER` nebo `ADMIN`. Běžný `STANDARD`/`USER` smí pracovat s vlastním účtem a povolenými vlastními údaji, číst své příspěvky a vlastní notifikace. Bez dalších vazeb nevidí týmové seznamy, kalendáře, jiné hráče ani konverzace. Registrace z uživatele automaticky nedělá hráče.
+Následující matice popisuje cílové operace po navazujících balíčcích; P1 z ní implementuje jen výše vymezený základ. Účet má jednu systémovou roli `USER` nebo `ADMIN`. Běžný `STANDARD`/`USER` smí pracovat s vlastním účtem a povolenými vlastními údaji, číst své příspěvky a vlastní notifikace. Bez dalších vazeb nevidí týmové seznamy, kalendáře, jiné hráče ani konverzace. Registrace z uživatele automaticky nedělá hráče.
 
 Klubové činnosti mají tyto podmínky:
 
@@ -58,9 +62,9 @@ Matice popisuje návrh, nikoli implementované endpointy. Rozhoduje **typ účtu
 
 Není nutná samostatná osoba administrátora. Jediný provozovatel může používat jeden účet `STANDARD` s `ADMIN` a vlastním trenérským přiřazením. Založí klub, sezónu, vlastní tým a hráčské profily a spravuje sportovní i správní agendu. Hráči nemusejí mít účty a rodičovské vazby nemusí existovat. Účet dítěte se přidá teprve při splnění podmínek pro `CHILD`; nepřihlášený hráč takovou podmínku nemá.
 
-**Plánované prvotní nastavení v E1:** přihlášený účet `STANDARD` s `enabled = true` převezme správu pomocí jednorázového instalačního tokenu z prostředí provozovatele. Token nemá výchozí hodnotu a veřejná registrace ani pořadí registrací nenahrazuje jeho ověření. Transakce pod `FOR UPDATE` nad klubem ověří token, nedokončené nastavení a absenci prvního administrátora, přidělí `ADMIN` a uloží `club.setup_completed_at` a `setup_completed_by`. Po dokončení není token znovu použitelný ani při pozdějším odebrání role; souběžné převzetí smí uspět jen jednou. `CHILD` nesmí správu převzít. Token se neukládá do DB, auditu ani logů.
+**Prvotní nastavení P1:** přihlášený účet `STANDARD` s `enabled = true` a dokončenou vlastní osobou převezme správu pomocí jednorázového instalačního tokenu z prostředí provozovatele. Prázdný `CLUB_SETUP_TOKEN` setup vypíná. Token nemá výchozí hodnotu a veřejná registrace ani pořadí registrací nenahrazuje jeho ověření. Transakce pod `FOR UPDATE` nad klubem ověří token, nedokončené nastavení a absenci prvního administrátora, přidělí `ADMIN` a uloží `club.setup_completed_at` a `setup_completed_by`. Po dokončení není token znovu použitelný ani při pozdějším odebrání role; souběžné převzetí smí uspět jen jednou. `CHILD` nesmí správu převzít. Token se neukládá do DB, auditu ani logů.
 
-Skeleton tento postup ani administraci zatím neposkytuje; veřejná registrace nadále vytváří `USER`. Samostatný provoz nepřidává práva ostatním účtům. Konverzace stále vyžaduje alespoň dva oprávněné účastníky; bez dalších účtů se tato funkce nepoužívá.
+P1 poskytuje tento setup a správu sportů; týmy, trenérská přiřazení a ostatní administraci doplní P2/P3. Existující ADMIN při V2 zachová práva a uzavře bootstrap; i on nejdříve doplní vlastní osobu. Veřejná registrace nadále vytváří `USER`/`STANDARD`. Samostatný provoz nepřidává práva ostatním účtům. Konverzace stále vyžaduje alespoň dva oprávněné účastníky; bez dalších účtů se tato funkce nepoužívá.
 
 ## Kontrola objektu na serveru
 

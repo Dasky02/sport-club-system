@@ -1,38 +1,18 @@
 package cz.jpmad.springprojecttemplate.api.auth.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import cz.jpmad.springprojecttemplate.model.user.User;
+import cz.jpmad.springprojecttemplate.model.user.enums.AccountType;
 import cz.jpmad.springprojecttemplate.model.user.enums.Role;
-
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * DTO pro odpověď s uživatelskými údaji.
- * Nikdy neobsahuje heslo ani hash hesla.
- */
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public record UserResponse(
-
-        @JsonProperty("id")
-        UUID id,
-
-        @JsonProperty("username")
-        String username,
-
-        @JsonProperty("role")
-        Role role,
-
-        @JsonProperty("createdAt")
-        Instant createdAt
-) {
-    public static UserResponse from(final User user) {
-        return new UserResponse(
-                user.getId(),
-                user.getUsername(),
-                user.getRole(),
-                user.getCreatedAt()
-        );
+/** Nikdy neobsahuje hash, legacy_role ani budoucí oprávnění. */
+@JsonInclude(JsonInclude.Include.ALWAYS)
+public record UserResponse(UUID id, String username, Role role, AccountType accountType, UUID personId,
+                           String profileState, Instant createdAt) {
+    public static UserResponse from(User user) {
+        return new UserResponse(user.getId(), user.getUsername(), user.getRole(), user.getAccountType(), user.getPersonId(),
+                user.getPersonId() == null ? "PENDING" : "COMPLETE", user.getCreatedAt());
     }
 }

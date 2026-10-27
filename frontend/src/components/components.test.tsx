@@ -1,3 +1,4 @@
+import { completeUser, userContext } from "@/test/fixtures";
 import MockAdapter from "axios-mock-adapter";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,10 +13,11 @@ const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 let mock: MockAdapter;
-const user = { id: "00000000-0000-0000-0000-000000000001", username: "tester", role: "USER", createdAt: "2026-10-05T10:00:00Z" };
+const user = completeUser;
 beforeEach(() => {
   mock = new MockAdapter(apiClient);
   mock.onGet("/auth/me").reply(401);
+  mock.onGet("/me/context").reply(200, userContext);
   mock.onGet("/auth/csrf").reply(200, { token: "token", headerName: "X-CSRF-TOKEN", parameterName: "_csrf" });
 });
 afterEach(() => { mock.restore(); });
@@ -76,6 +78,7 @@ describe("Czech UI integration", () => {
 
   it("chráněný obsah zobrazí až po ověření a při výpadku nabídne retry", async () => {
     mock.resetHandlers();
+    mock.onGet("/me/context").reply(200, userContext);
     mock.onGet("/auth/me").networkErrorOnce();
     mock.onGet("/auth/me").reply(200, user);
     render(<AuthProvider><Dashboard /></AuthProvider>);
@@ -83,6 +86,6 @@ describe("Czech UI integration", () => {
     expect(screen.queryByText("tester")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Zkusit znovu" }));
     await screen.findByRole("heading", { name: "Ahoj, tester." });
-    expect(screen.getByText("Uživatel bez klubových oprávnění")).toBeInTheDocument();
+    expect(screen.getByText("Běžný uživatel")).toBeInTheDocument();
   });
 });
