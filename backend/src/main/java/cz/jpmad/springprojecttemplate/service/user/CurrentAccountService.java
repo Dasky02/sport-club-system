@@ -24,7 +24,7 @@ public class CurrentAccountService {
         User user = users.findById(userId).orElseThrow(() -> new BadCredentialsException("Authentication required"));
         // Také při volání po club locku načteme novou verzi případné již managed entity.
         entityManager.refresh(user);
-        // P1 nemá hráčské profily/guardians; CHILD proto nikdy není platný přihlašovací účet.
+        // Do P3 chybí ověřování rodičovských vazeb; CHILD proto zatím není platný přihlašovací účet.
         if (!user.isEnabled() || user.getAccountType() != AccountType.STANDARD) {
             throw new BadCredentialsException("Authentication required");
         }

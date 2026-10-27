@@ -25,7 +25,8 @@ export function AccessGate({ children, completeProfile = false, capability }: {
     return <section className="state-card"><p className="eyebrow">Dokončení účtu</p><h1>Nejprve doplňte osobní údaje.</h1><p>Dokud účet není propojený s osobou, je dostupné pouze dokončení vlastního profilu.</p><Link className="button" href="/profile">Doplnit osobní údaje</Link></section>;
   }
   if (capability && (user.accountType !== "STANDARD" || user.role !== "ADMIN" || !context?.capabilities.includes(capability))) {
-    return <section className="state-card"><p className="eyebrow">Omezený přístup</p><h1>Tato stránka vyžaduje oprávnění správce.</h1><p>Aktuální účet nemá oprávnění ke správě sportů.</p><Link className="button button-secondary" href="/dashboard">Zpět na můj účet</Link></section>;
+    return <section className="state-card"><p className="eyebrow">Omezený přístup</p><h1>Tato stránka vyžaduje oprávnění správce.</h1><p>Aktuální účet nemá oprávnění k této správní činnosti.</p><Link className="button button-secondary" href="/dashboard">Zpět na můj účet</Link></section>;
   }
+  if (completeProfile && user.accountType !== "STANDARD") return <section className="state-card"><h1>Klubové funkce nejsou pro tento účet dostupné.</h1><p>Dětské přihlášení bude dostupné až po zavedení ověřených rodičovských vazeb.</p></section>;
   return children;
 }

@@ -39,6 +39,7 @@ public class GlobalExceptionHandler {
         String name = field.getField();
         if (name.equals("passwordWithinBcryptLimit")) name = "password";
         if (name.equals("changePresent")) name = "name";
+        if (name.equals("exactlyOneIdentity")) name = "personId";
         String code = field.getCode() == null ? "Invalid" : field.getCode();
         String message = switch (code) {
             case "NotNull", "NotBlank" -> "This field is required";

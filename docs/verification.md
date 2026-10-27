@@ -42,7 +42,7 @@ Testy vytvářejí jedinečné smyšlené účty; spouštějte je nad vývojový
 - **GitHub CI spuštěno při publikaci** do [Dasky02/sport-club-system](https://github.com/Dasky02/sport-club-system); aktuální stav jednotlivých commitů je v [Actions](https://github.com/Dasky02/sport-club-system/actions/workflows/ci.yml). Místní kontroly odpovídající CI a syntaktický actionlint prošly. **Release a GHCR dosud nespouštěny**: publikování zdrojového repozitáře nevydalo release ani nenahrálo images.
 - **Veřejné produkční HTTPS/ACME nasazení s vlastní doménou neproběhlo.** HTTPS je konfigurované a lokálně ověřené, nikoli živě veřejně nasazené. Produkční DNS/porty/certifikát a cookies tým ověří dle [deployment](deployment.md).
 - **Záloha/obnova nebyla provozně provedena.** Postup je dokumentovaný, finální akceptace musí ověřit obnovitelnost skutečné zálohy.
-- **P1 nově dodává vlastní osobu, setup a správu sportů; ostatní doménové funkce zůstávají plánované.** Týmy, hráči, rodičovské vazby a aktivace CHILD, události/účast, soutěže, statistiky, finance, notifikace, messaging a sportovní historie stále vyžadují navazující implementaci. Samotné založení sportů není akceptace jejich výsledkových scénářů. Přehled v [requirements](requirements.md) a [roadmap](roadmap.md).
+- **P1/P2 dodávají identitu a týmový základ, podrobné datované výsledky jsou níže.** Rodičovské vazby a aktivace CHILD, události/účast, soutěže, statistiky, finance, notifikace, messaging a výsledková historie stále vyžadují navazující implementaci. Samotné založení sportů není akceptace jejich výsledkových scénářů. Přehled v [requirements](requirements.md) a [roadmap](roadmap.md).
 - Statický credential check je kontrola známých patternů a souborů, ne záruka neexistence libovolné tajné hodnoty. Před veřejným publikováním byl finální Git obsah zkontrolovaný; žádné skutečné env hodnoty se do repozitáře nepřevzaly. Kontrola se opakuje v CI.
 
 Nový [veřejný repozitář](https://github.com/Dasky02/sport-club-system) byl vytvořen a nahrán po kontrole obsahu na výslovnou žádost uživatele. GitHub uvádí PUBLIC, isFork=false a výchozí větev main; historie začíná vlastním root commitem. Původní privátní template nebyl cílem žádné write operace.
@@ -79,15 +79,47 @@ Reprodukce P1 browserového scénáře: nad **samostatnou novou testovací DB** 
 
 ```sh
 cd frontend
-E2E_SETUP_PROJECT=desktop npm run test:e2e -- --project=desktop
+E2E_SETUP_PROJECT=desktop npm run test:e2e -- auth.spec.ts club-setup.spec.ts --project=desktop
 ```
 
 Mobilní průchod spusťte až nad další čistou izolovanou DB/restartovaným backendem:
 
 ```sh
-E2E_SETUP_PROJECT=mobile npm run test:e2e -- --project=mobile
+E2E_SETUP_PROJECT=mobile npm run test:e2e -- auth.spec.ts club-setup.spec.ts --project=mobile
 ```
 
 Pro jiné porty přidejte `E2E_BASE_URL` a `E2E_API_URL`. Token nikdy nepatří do `NEXT_PUBLIC_*`, URL ani sdíleného příkazu s jeho hodnotou. Bez explicitního testovacího tokenu je jednorázový P1 scénář přeskočen; obyčejné auth scénáře běží dál. Tyto testy se nepouštějí nad živým klubem a běžná data se kvůli nim nemažou.
 
 **Neprovedeno pro P1:** nové sestavení celých Docker images, nové HTTPS/ACME ověření, veřejné nasazení, provozní restore, nový audit závislostí a GitHub CI této lokální větve. Produkční runtime byl ověřen jako sestavený JAR + Next standalone, Compose jako konfigurace. Staré HTTPS ověření E0 zůstává historickým výsledkem. Žádný plánovaný týmový, finanční nebo sportovní výsledkový scénář se tímto neoznačuje za hotový.
+
+
+## Publikace P1 a ověření P2 — 27. 10. 2026
+
+P1 commit `192dd6a` je publikovaný v [PR #23](https://github.com/Dasky02/sport-club-system/pull/23), základ `main` `c0b52d6`. GitHub CI tohoto PR má tři úspěšné joby: Backend verify, Frontend checks, Public content and Compose ([běh](https://github.com/Dasky02/sport-club-system/actions/runs/40494184203)). PR nebyl automaticky sloučen. P2 je na samostatné větvi `feat/teams-and-memberships` nad P1, bez změny zdrojového template.
+
+P2 dodává V3 a skutečné sezóny, vlastní i externí týmy, sezónní názvy, ADMIN osoby/offline hráče, intervalová hráčská a trenérská členství, self-coach a scoped soupisky/historii. Pokrývá týmový rozsah R01, část R02/R12/R16, T01–T04/T07–T11 a U06/U08/U11. Neuzavírá celou E1. `guardian_links` je jen DB příprava P3; CHILD je stále blokovaný, rodičovské a finanční schopnosti nejsou dostupné.
+
+| Kontrola | Skutečný výsledek |
+| --- | --- |
+| Backend Java 17 / Maven verify | **40/40 PASS**, 0 failures/errors/skipped. Včetně všech P1 regresí, 8 P2 HTTP/PostgreSQL scénářů, 6 unit scénářů nové služby a samostatného V2→V3 migračního testu. JAR sestaven; po textové aktualizaci info resources znovu package se skipTests, obsah resources porovnán byte-for-byte. |
+| Upgrade a integrita | V2→V3 zachová UUID/osoby/BCrypt/admin setup/audit/sporty, nevytvoří smyšlené hráče. Skutečné PostgreSQL 16 provede V1–V3 a btree_gist, celkem 12 tabulek. Překryv stejné dvojice odmítá EXCLUDE (23P01), sousední intervaly i souběh v jiném týmu projdou. V1/V2 zůstávají beze změny. |
+| Oprávnění a souběh | Negativní scoped detail/list/count, minimální DTO i pro ADMIN, konec a budoucí začátek vztahu, revokace při staré session, archivovaný read/write, souběžné členství a atomický rollback osoby/hráče. Jednotný datumový snapshot rosteru/historie ověřen dvěma testy přes pražskou půlnoc. |
+| Frontend | **64/64 PASS**, lint/typecheck/build PASS. P2 přidává 17 transportních/komponentových/unit scénářů: přístupové brány, sezóna/archiv, atomický hráč, výslovná existující osoba, konflikt bez retry/ztráty formuláře, minimální roster, intervaly, pozdní odpovědi a načtení výběrů přes první stovku. |
+| Browser desktop | Chromium, skutečný JAR + Next production standalone + izolovaný PostgreSQL 16: **3/3 PASS**, 0 skipped. Dva původní auth/session/výpadek scénáře a nový úplný P1/P2 průchod. |
+| Browser mobil | Pixel 7 nad další čistou testovací DB se znovu aplikovanými V1–V3: **3/3 PASS**, 0 skipped. Celkem desktop+mobil **6/6 PASS**. |
+| P2 průchod | Registrace → osoba → jednorázový setup → fotbal+basketbal → sezóna a oba týmy → dva hráči bez účtů/rodičů → jediný ADMIN trenérem obou → přejmenování základního týmu zachová sezónní název → ukončení/přestup/historie → historická soupiska → archiv blokuje mutaci a ponechá read. JSON rosteru ani základního player detailu nemá kontakty/DOB. |
+| Vizuální kontrola | Prohlédnuty desktopový a Pixel 7 screenshot soupisky. Čitelné karty a ovládání, testovaná absence horizontálního přetékání. |
+| Konfigurace a obsah | Všechny tři Compose konfigurace PASS. Veřejný obsah PASS; lokální Markdown odkazy, 5 JSON příkladů, 38 cílových/12 migrovaných tabulek a git diff --check PASS. Byte-for-byte V1/V2 zachované. |
+
+Běhy používaly pouze vlastní zahoditelný container/DB bez projektu volumes: DB 15432, API 18080, standalone 13000. Ostatní data se neresetovala. Výstupy jsou ignorované v `.verification/`; přihlašovací údaje jsou smyšlené, žádný produkční seed. Pro reprodukci nastavte soukromý backendový CLUB_SETUP_TOKEN a stejný E2E_SETUP_TOKEN jen pro testovací proces a vyberte jeden setup scénář:
+
+```sh
+# frontend/; samostatná čistá testovací DB pro každý projekt
+E2E_SETUP_PROJECT=desktop npm run test:e2e -- auth.spec.ts roster.spec.ts --project=desktop
+# po přípravě druhé čisté izolované DB a restartu backendu
+E2E_SETUP_PROJECT=mobile npm run test:e2e -- auth.spec.ts roster.spec.ts --project=mobile
+```
+
+Pro jiné porty nastavte E2E_BASE_URL/E2E_API_URL; frontend build musí mít odpovídající NEXT_PUBLIC_API_URL. Token nikdy do veřejné proměnné/URL nebo příkazu s jeho skutečnou hodnotou. `roster.spec.ts` a `club-setup.spec.ts` nepouštějte se setup tokenem nad stejnou DB současně: oba vyžadují nedokončený klub. Bez tokenu se tyto opt-in scénáře přeskočí; obyčejné auth testy běží dál.
+
+**Neprovedeno pro P2:** GitHub CI nové P2 větve, nové Docker image buildy, nové HTTPS/ACME ověření, veřejné nasazení, provozní restore a nový audit závislostí. P1 CI výsledek není CI důkaz P2. Historie výsledků/statistik, rodičovský průchod a CHILD akceptace čekají na navazující implementaci; samotný DB základ tyto požadavky nesplňuje.

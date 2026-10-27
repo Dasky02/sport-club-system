@@ -1,6 +1,6 @@
 # Návrh databáze
 
-**Stav E0 + P1:** V1 `users` se nemění. V2 přidává `persons`, `club`, `audit_log` a `sports`, rozšiřuje users a bezpečně převádí staré role. Živý rozsah je tedy pět tabulek; dalších 33 z cílového DBML zůstává návrhem. P1 je pouze část E1. DBML ani ER diagram nejsou automaticky spuštěná migrace a samy neprokazují funkční API nebo testy.
+**Stav E0 + P1/P2:** V1/V2 se nemění; V3 přidává sedm tabulek pro sezóny/týmy/hráče/členství a guardian základ. Implementováno je 12 z cílových 38 tabulek; dalších 26 je návrh. Guardian_links zatím nemá API ani funkční rodičovské oprávnění, CHILD zůstává blokovaný do P3. P1/P2 jsou část E1, nikoli hotová aplikace. DBML/diagram nejsou důkaz provedené migrace nebo testu; výsledky jsou v [ověření](verification.md).
 
 Úplný a jediný aktuální návrh tabulek a invariantů je v [databázovém modelu](database.md), jeho strojově čitelná podoba v [sport-club.dbml](sport-club.dbml) a přehled vztahů v [ER diagramu](ERD%20diagram.svg). Tento rozcestník nahrazuje dřívější paralelní návrh, aby implementace nevycházela ze dvou různých schémat.
 
@@ -17,13 +17,13 @@
 
 ## Hranice databáze a služeb
 
-PostgreSQL 16 používá UUID, přesné `numeric` pro peníze a desetinné statistiky, `date` pro splatnosti a `timestamptz` pro okamžiky. PK/FK, jedinečnost a lokální `CHECK` tvoří základ integrity. Intervalová omezení `EXCLUDE` a popsané mezitabulkové invarianty se doplní v příslušných migracích. Bezpečnostní a doménové podmínky ověřuje transakční Spring service také u přímého API požadavku; frontend je nenahrazuje.
+PostgreSQL 16 používá UUID, přesné `numeric` pro peníze a desetinné statistiky, `date` pro splatnosti a `timestamptz` pro okamžiky. PK/FK, jedinečnost a lokální `CHECK` tvoří základ integrity. V3 má EXCLUDE s btree_gist pro obě členství a guard triggery hranic/archivu; ostatní popsané invarianty se doplní s dalšími doménami. Bezpečnostní a doménové podmínky ověřuje transakční Spring service také u přímého API požadavku; frontend je nenahrazuje.
 
 Doménové operace dodržují společný zamykací postup z [modelu](database.md#integrita-a-souběžné-operace), znovu ověří aktuální oprávnění a ve stejné transakci zapíší audit i doručení notifikací. Historie se nemaže kaskádou. Označení enumů v DBML je logický číselník; konkrétní Flyway migrace musí zachovat kompatibilitu dosavadních dat.
 
 ## Implementační a migrační postup
 
-Nové Flyway soubory vznikají v `backend/src/main/resources/db/migration/` spolu s implementací služby, autorizačními a integračními testy. V1 ani již nasazené migrace se nepřepisují. V2 převádí původní pětici rolí na `USER/ADMIN`, zachovává UUID/hashe/časy a ukládá neveřejné legacy_role. Neúplné účty mají přechodně nullable person_id a vlastní onboarding bez vymyšlených osobních údajů. Existující ADMIN uzavírá setup. Odvozené týmové vztahy, person-link a aktivace CHILD nejsou P1; vyžadují P2/P3. NOT NULL pro person_id přijde až po ověřeném backfillu v samostatné migraci.
+Nové Flyway soubory vznikají v `backend/src/main/resources/db/migration/` spolu s implementací služby, autorizačními a integračními testy. V1 ani již nasazené migrace se nepřepisují. V2 převádí původní pětici rolí na `USER/ADMIN`, zachovává UUID/hashe/časy a ukládá neveřejné legacy_role. Neúplné účty mají přechodně nullable person_id a vlastní onboarding bez vymyšlených osobních údajů. Existující ADMIN uzavírá setup. P2 přidává odvozené týmové vztahy; person-link a aktivace CHILD vyžadují P3. NOT NULL pro person_id přijde až po ověřeném backfillu v samostatné migraci.
 
 Každá etapa ověří prázdnou databázi i upgrade starší verze nad PostgreSQL Testcontainers. Hibernate zůstává `ddl-auto=validate`, bez automatického baseline. Vývojová demonstrační data ani známá hesla nepatří do produkční migrace. Zálohování a zkušební obnovu popisují [model](database.md#zálohování-a-obnova) a [nasazení](deployment.md).
 

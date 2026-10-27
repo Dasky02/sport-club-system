@@ -23,14 +23,14 @@ export interface UserResponse {
   createdAt: string;
 }
 
-export type Capability = "MANAGE_CLUB" | "MANAGE_SPORTS";
+export type Capability = "MANAGE_CLUB" | "MANAGE_SPORTS" | "MANAGE_SEASONS" | "MANAGE_TEAMS" | "MANAGE_PLAYERS" | "MANAGE_MEMBERSHIPS";
 
-/** P1 nevrací dosud neimplementované týmové, hráčské ani rodičovské schopnosti. */
+/** Jen skutečné aktuální kontexty; týmová oprávnění nejsou globální role. */
 export interface AccountContext {
   accountType: AccountType;
   capabilities: Capability[];
-  ownPlayerId: null;
-  teamContexts: never[];
+  ownPlayerId: string | null;
+  teamContexts: { teamSeasonId: string; capabilities: "READ_TEAM"[] }[];
   children: never[];
 }
 

@@ -8,9 +8,9 @@ Postup v README sestaví DB, backend i standalone Next.js. Po `cp .env.example .
 
 P1 vyžaduje pro nové převzetí správy soukromý `CLUB_SETUP_TOKEN` pouze v backendu. `.env.example` má prázdnou hodnotu, která setup vypíná. Provozovatel nastaví vlastní náhodný token před startem/restartem backendu; nejde o veřejný build argument, NEXT_PUBLIC proměnnou, URL nebo výchozí účet. Po registraci a doplnění vlastní osoby použije `/setup`. Jediný platný požadavek pod zámkem vytvoří prvního ADMIN a audit. Dokončení se ukládá do DB a opakování blokuje i při stále nastaveném tokenu. Po dokončení lze token z prostředí odstranit a backend restartovat.
 
-V1 se nepřepisuje. V2 zachová účty/hashe/UUID/časy a přidá persons/club/audit/sports; person_id je přechodně nullable. Starý USER či bývalý COACH/PLAYER/PARENT se přihlásí a nejprve doplní vlastní osobu, žádná jména nebo vztahy se negenerují z loginu. Existující ADMIN zůstane a V2 uzavře bootstrap, takže nový token nemůže převzít už spravovanou instalaci. I tento ADMIN dokončí vlastní osobu před správou sportů. P1 CHILD blokuje; aktivace vyžaduje budoucí P3.
+V1 se nepřepisuje. V2 zachová účty/hashe/UUID/časy a přidá persons/club/audit/sports; person_id je přechodně nullable. Starý USER či bývalý COACH/PLAYER/PARENT se přihlásí a nejprve doplní vlastní osobu, žádná jména nebo vztahy se negenerují z loginu. Existující ADMIN zůstane a V2 uzavře bootstrap, takže nový token nemůže převzít už spravovanou instalaci. I tento ADMIN dokončí vlastní osobu před správou sportů. P1/P2 CHILD blokují; aktivace vyžaduje budoucí P3.
 
-Před upgradem zálohujte databázi a nasazujte odpovídající backend i frontend společně. Po startu ověřte vlastní onboarding, aktuální kontext, dostupnost setupu a ADMIN sporty. Úspěšný výsledek patří do verification, nikoli se neodvozuje z existence návodu. V2 není hotová E1: žádné týmy, rodiče, finance, události nebo komunikace dosud nedodává.
+Před upgradem zálohujte databázi a nasazujte odpovídající backend i frontend společně. Po startu ověřte vlastní onboarding, aktuální kontext, dostupnost setupu a ADMIN sporty. Úspěšný výsledek patří do verification, nikoli se neodvozuje z existence návodu. P2 automaticky aplikuje V3 se sedmi novými tabulkami a rozšířením btree_gist. PostgreSQL účet musí smět nainstalovat toto rozšíření; případně jej provozovatel připraví před upgradem. V1/V2 se nepřepisují. Ověřte také zachování osob/sportů, založení sezóny a obou sportovních týmů, offline hráče, intervaly a scoped čtení. E1 není hotová: rodiče/CHILD a správa účtů čekají na P3; finance, události a komunikace na další balíčky.
 
 ## HTTPS produkce
 
@@ -29,7 +29,7 @@ Override zabuduje `https://PUBLIC_HOST/api` do frontendu, nastaví přesný CORS
 
 4. Ověřte HTTPS redirect, platnost certifikátu a `/api/actuator/health`. V prohlížeči projděte registraci/login/refresh/logout; cookie musí být HttpOnly, Secure, SameSite=Lax a Path=/api. Chybný CSRF nebo cizí origin musí selhat. Lokální integrační testy nenahrazují tento produkční smoke test.
 
-Samotná registrace poskytuje USER/STANDARD/PENDING. P1 má jednorázový setup a správu sportů; obecné přidělování rolí, týmy, rodiče a další klubová agenda dosud nejsou implementované. P1 nepoužívejte jako dokončený klubový provoz. Dev ani produkce nemá účet s výchozím heslem. Dokumenty podmínek a soukromí v informačním API jsou pracovní texty skeletonu, před ostrým provozem je doplní provozovatel.
+Samotná registrace poskytuje USER/STANDARD/PENDING. P1/P2 mají setup, sporty, sezóny, týmy, hráče a členství. Obecné přidělování rolí, rodiče a další klubová agenda ještě nejsou implementované. Tento rozsah není dokončený klubový provoz. Dev ani produkce nemá účet s výchozím heslem. Dokumenty podmínek a soukromí v informačním API jsou pracovní texty skeletonu, před ostrým provozem je doplní provozovatel.
 
 ## Aktualizace, záloha a obnova
 

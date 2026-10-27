@@ -1,10 +1,10 @@
 # Informační systém pro správu sportovního klubu
 
-Samostatný týmový ročníkový projekt `sport-club-system`. **E0 a pracovní balíček P1 tvoří technický základ a první část E1; E1 ani celá klubová aplikace nejsou dokončené.** Cílový rozsah odpovídá `zadani_sportovni_klub_v2.odt`; finální akceptace zahrnuje fotbal i basketbal v jedné aplikaci bez změny kódu.
+Samostatný týmový ročníkový projekt `sport-club-system`. **E0 a pracovní balíčky P1/P2 tvoří technický základ a část E1; E1 ani celá klubová aplikace nejsou dokončené.** Cílový rozsah odpovídá `zadani_sportovni_klub_v2.odt`; finální akceptace zahrnuje fotbal i basketbal v jedné aplikaci bez změny kódu.
 
 Základ zachovává Spring REST API, UUID účty a BCrypt, session `JSESSIONID`, CSRF, info API s verzí z JAR, samostatný Next.js frontend, Docker a CI. P1 přidává Flyway V2, doplnění vlastní osoby, aktuální autorizační kontext, bezpečné jednorázové převzetí správy a administrátorský seznam, založení a úpravu sportů. Veřejná registrace vytváří `USER`/`STANDARD` bez klubových práv; neúplný účet nejdříve dokončí osobní údaje.
 
-Týmy, hráčské profily, trenérská přiřazení, rodičovské vazby a aktivace CHILD, události, výsledky, statistiky, příspěvky, komunikace a notifikace zůstávají **plánované**. P1 neposkytuje obecnou správu cizích osob, účtů ani rolí. Rozsah implementace popisuje [API kontrakt](docs/api-contract.md); skutečně provedené kontroly a jejich omezení uvádí [ověření](docs/verification.md).
+P2 přidává V3, sezóny, vlastní i externí týmy, hráče bez účtů, trenérská přiřazení, intervalová členství, historii a oprávněné soupisky. ADMIN může spravovat osoby; účty a role jiných uživatelů zatím nespravuje. Rodičovské vazby a aktivace CHILD, události, výsledky, statistiky, příspěvky, komunikace a notifikace zůstávají **plánované**. Rozsah implementace popisuje [API kontrakt](docs/api-contract.md); skutečně provedené kontroly a jejich omezení uvádí [ověření](docs/verification.md).
 
 ## Požadavky
 
@@ -56,15 +56,17 @@ npm run dev
 
 Otevřete [frontend](http://localhost:3000). [Verze API](http://localhost:8080/api/info/version), [health](http://localhost:8080/api/actuator/health) a [OpenAPI](http://localhost:8080/api/v3/api-docs) ověřují skutečný běžící backend. API prefix `/api` se přidává právě jednou. Databázové změny provádí Flyway; Hibernate pouze validuje schéma.
 
-## První průchod P1
+## První průchod P1/P2
 
 1. Zaregistrujte se a přihlaste. Registrace sama nepřihlašuje ani nepřiděluje ADMIN.
 2. Na `/profile` doplňte skutečné jméno a příjmení, případně datum narození a kontakty. PENDING účet nemá klubová oprávnění. Onboarding vytváří jen vlastní osobu; nepřipojuje cizí existující profil podle jména či ID.
 3. Pro novou instalaci otevřete `/setup` a použijte soukromý instalační token nastavený v backendu. Dokončený STANDARD účet získá ADMIN pouze při prvním platném převzetí. Prázdný token setup nepovolí a dokončený setup nelze opakovat.
 4. Jako ADMIN otevřete `/admin/sports`, založte například fotbal a basketbal a upravte jejich název či aktivní stav. Kód sportu je stabilní a sport se nemaže. Běžný USER tuto správu nemá.
-5. Dashboard a navigace používají skutečný `/me/context`. P1 má pouze správní schopnosti `MANAGE_CLUB` a `MANAGE_SPORTS`; týmy, finance ani odvozené trenérské či rodičovské schopnosti zatím neexistují.
+5. V `/admin/seasons` vytvořte sezónu, v `/admin/teams` týmy a jejich sezónní záznamy. Každý tým vyberte právě k jednomu sportu. Externí soupeř nemá interní členství.
+6. V `/admin/players` založte hráče s datem narození; účet ani rodič nejsou povinné. Přes **Spravovat členství** přidejte hráče a vlastní účet jako trenéra. Interval je `[od,do)`, prázdný konec znamená konec sezóny. Překryv stejné dvojice je zakázaný.
+7. V `/teams` otevřete soupisku a historii hráče. ADMIN vidí všechny týmy; ostatní jen aktuální vlastní nebo trenérské členství. Přestup ukončí starý interval a přidá nový, archivace zachová čtení a blokuje změny. Dashboard a navigace používají skutečný `/me/context`; finanční ani rodičovské schopnosti zatím nevznikají.
 
-Při upgradu původní databáze se V1 nepřepisuje: V2 zachová UUID, BCrypt hashe a časy. ADMIN zůstává ADMIN, staré COACH/PLAYER/PARENT se převádějí na USER bez vymyšlených vztahů. Účty mohou mít dočasně `person_id = NULL`, po přihlášení dokončí vlastní onboarding. Existující ADMIN při migraci uzavře prvotní setup a po doplnění osoby může spravovat sporty. CHILD je v P1 zakázaný pro přístup a není dostupný jeho vznik ani aktivace. Podrobný postup a plán čtyř klubových rolí obsahuje [příručka](docs/user-guide.md).
+Při upgradu původní databáze se V1 nepřepisuje: V2 zachová UUID, BCrypt hashe a časy. ADMIN zůstává ADMIN, staré COACH/PLAYER/PARENT se převádějí na USER bez vymyšlených vztahů. Účty mohou mít dočasně `person_id = NULL`, po přihlášení dokončí vlastní onboarding. Existující ADMIN při migraci uzavře prvotní setup a po doplnění osoby může spravovat sporty. CHILD je i v P2 zakázaný pro přístup a není dostupný jeho vznik ani aktivace. Podrobný postup a plán čtyř klubových rolí obsahuje [příručka](docs/user-guide.md).
 
 ## Celá sestava v Dockeru
 

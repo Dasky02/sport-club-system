@@ -99,7 +99,7 @@ class IdentityAndClubSetupTests {
         assertThat(claim.statusCode()).as(claim.body()).isEqualTo(200);
         assertThat(json(claim).path("role").asText()).isEqualTo("ADMIN");
         assertThat(json(browser.get("/auth/me")).path("role").asText()).isEqualTo("ADMIN");
-        assertThat(json(browser.get("/me/context")).path("capabilities").toString()).isEqualTo("[\"MANAGE_CLUB\",\"MANAGE_SPORTS\"]");
+        assertThat(json(browser.get("/me/context")).path("capabilities").toString()).isEqualTo("[\"MANAGE_CLUB\",\"MANAGE_SPORTS\",\"MANAGE_SEASONS\",\"MANAGE_TEAMS\",\"MANAGE_PLAYERS\",\"MANAGE_MEMBERSHIPS\"]");
         assertThat(json(browser.get("/club/setup-status")).path("available").asBoolean()).isFalse();
         assertError(browser.post("/club/setup", Map.of("token", TOKEN)), 409, "SETUP_ALREADY_COMPLETED");
         var second = account(true);

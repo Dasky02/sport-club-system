@@ -1,22 +1,22 @@
-# Architektura technického základu a P1
+# Architektura technického základu a P1/P2
 
-## Implementovaný rozsah E0 + P1
+## Implementovaný rozsah E0 + P1/P2
 
-Monorepo: `backend/` je Spring Boot 4/Java 17 s původním package `cz.jpmad.springprojecttemplate`; `frontend/` je samostatný Next.js App Router/TypeScript. PostgreSQL 16 má po V2 účty, osoby, klub, audit a sporty. P1 pokrývá vlastní onboarding, jednorázový setup a správu sportů, nikoli celou E1 nebo klubovou aplikaci. Kořen uchovává VERSION, LICENSE, Compose a týmové materiály. Business logika a autorizace zůstávají ve Springu. Žádný NextAuth, JWT, OAuth, Redis nebo mikroservisy nejsou potřeba.
+Monorepo: `backend/` je Spring Boot 4/Java 17 s původním package `cz.jpmad.springprojecttemplate`; `frontend/` je samostatný Next.js App Router/TypeScript. PostgreSQL 16 má po V3 celkem 12 tabulek. P1 pokrývá identitu/setup/sporty, P2 sezóny, týmy, offline hráče, intervalová členství a scoped soupisky/historii. Rodičovská tabulka má jen datový základ pro P3; celá E1 ani klubová aplikace nejsou hotové. Kořen uchovává VERSION, LICENSE, Compose a týmové materiály. Business logika a autorizace zůstávají ve Springu. Žádný NextAuth, JWT, OAuth, Redis nebo mikroservisy nejsou potřeba.
 
 ```mermaid
 flowchart LR
   Browser[Prohlížeč / Next UI] -->|JSON + session cookie + CSRF| API[Spring REST /api]
   API --> Services[service / UserDetailsService / InfoService]
-  Services --> Repositories[repository / JPA]
+  Services --> Repositories[repository / JPA + JDBC]
   Repositories --> DB[(PostgreSQL 16)]
-  Flyway[Flyway V1 + V2] --> DB
+  Flyway[Flyway V1 až V3] --> DB
   Version[Kořenový VERSION] -->|Maven resources| JAR[Backend JAR / classpath VERSION]
 ```
 
 Zachované vrstvy `api`, `config`, `model`, `repository`, `service` používají constructor injection a DTO records. `User` má UUID, BCrypt passwordHash, USER/ADMIN, typ STANDARD/CHILD, enabled, dočasně volitelný person a auditní časy. Veřejná registrace stále přijímá jen username/password a vytváří USER/STANDARD s PENDING osobou. GET/POST `/me/person` umožní vlastní údaje doplnit; nepřipojuje existující cizí osobu. Obecná správa účtů, rolí a person-link dosud nemá API.
 
-P1 načítá aktuální účet i při použití existující session. Neúplný účet nemá klubový rozsah; deaktivovaný účet a CHILD jsou blokované. Podmínky aktivace CHILD a odvozená týmová/rodičovská oprávnění přijdou v P2/P3. `/me/context` vrací bez klubových vazeb prázdné schopnosti a dokončenému ADMIN pouze MANAGE_CLUB/MANAGE_SPORTS. Frontend poskytuje `/profile`, `/setup` a `/admin/sports` nad skutečným API. Capabilities nejsou vstupem, kterým si klient může přidělit oprávnění.
+P1 načítá aktuální účet i při použití existující session. Neúplný účet nemá klubový rozsah; deaktivovaný účet a CHILD jsou blokované. Podmínky aktivace CHILD a rodičovská oprávnění přijdou v P3. P2 kontext vrací ADMIN šest správních capabilities a READ_TEAM pouze pro skutečně aktuální trenérská/hráčská členství; ownPlayerId spojuje osobu účtu a hráče. Frontend poskytuje `/profile`, `/setup` a `/admin/sports` nad skutečným API. Capabilities nejsou vstupem, kterým si klient může přidělit oprávnění.
 
 Setup vyžaduje dokončenou vlastní osobu a soukromý `CLUB_SETUP_TOKEN`; prázdný jej vypíná. Pod zámkem klubu proběhne jediné převzetí a audit. Po setupu má tentýž účet ADMIN, ale zatím žádné trenérské přiřazení. Správa sportů zahrnuje stránkovaný seznam, vytvoření a změnu názvu/aktivního stavu, stabilní kód a žádné mazání.
 
@@ -30,7 +30,9 @@ Cookie je HttpOnly a SameSite=Lax. Výchozí backend konfigurace je Secure=true,
 
 ## Databáze a verze
 
-V1 zůstává beze změny. V2 přidává `persons`, `club`, `audit_log` a `sports`, rozšiřuje users a převádí staré role při zachování UUID, hashů a časů. Původní role se uchová v neveřejném `legacy_role`; COACH/PLAYER/PARENT se převedou na USER bez domyšlených vazeb. Existující ADMIN zůstává a migrace uzavře bootstrap. `person_id` je přechodně NULL; žádná falešná jména se nevytvářejí. NOT NULL vyžaduje pozdější samostatný ověřený backfill. Dalších 33 doménových tabulek DBML není implementovaných.
+V1 zůstává beze změny. V2 přidává `persons`, `club`, `audit_log` a `sports`, rozšiřuje users a převádí staré role při zachování UUID, hashů a časů. Původní role se uchová v neveřejném `legacy_role`; COACH/PLAYER/PARENT se převedou na USER bez domyšlených vazeb. Existující ADMIN zůstává a migrace uzavře bootstrap. `person_id` je přechodně NULL; žádná falešná jména se nevytvářejí. NOT NULL vyžaduje pozdější samostatný ověřený backfill. V3 přidává sezóny, týmy, team_seasons, player_profiles, guardian_links a dvě členské tabulky. Dalších 26 tabulek DBML není implementovaných. Relační týmové dotazy jsou v TeamDomainRepository přes NamedParameterJdbcTemplate; P1 entities/UserService zůstávají JPA. Oba používají stejný datasource a Spring transakci, včetně auditu a rollbacku atomického vytvoření osoby/hráče. Hibernate validuje mapované entity; V3 omezení ověřují skutečné PostgreSQL migrační/integrační testy. SQL nemá místo v controllerech.
+
+P2 čte pod sdíleným a zapisuje pod výhradním zámkem klubu, poté znovu ověří účet. Scoped items i counts mají stejný dotaz. Jedna operace zachytí jediný klubový den v Europe/Prague pro oprávnění i data. EXCLUDE s btree_gist brání překryvům členství; trigger a service kontrolují hranice sezóny, archivaci, povolený účet trenéra a externí soupeře. Budoucí P5 musí doplnit invarianty účastí událostí, které v P2 ještě neexistují.
 
 Flyway je aktivní ve vývoji, testech i produkci; baseline-on-migrate není zapnutý a Hibernate ddl-auto=validate. Dev profil nezakládá žádný default účet. Jediným zdrojem app verze je kořenový VERSION, přibalený do JAR pomocí Maven resources; ruční kopie v backend resources neexistuje. InfoService zachovává renderování Markdownu a `info.cacheTtlMs`. Provedené běhy patří do [ověření](verification.md), tento popis nezaručuje jejich výsledek.
 

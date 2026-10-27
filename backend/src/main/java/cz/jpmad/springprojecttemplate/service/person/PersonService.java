@@ -23,6 +23,7 @@ public class PersonService {
     private final CurrentAccountService accounts;
     private final AuditRepository audit;
     private final Clock clock;
+    private final TeamDomainRepository teamData;
     @Transactional
     public PersonResponse getOwn(UUID actorId) {
         clubs.lockForRead();
@@ -55,8 +56,12 @@ public class PersonService {
         clubs.lockForRead();
         var user = accounts.requireUsable(actorId);
         List<String> capabilities = user.getPersonId() != null && user.getRole() == Role.ADMIN
-                ? List.of("MANAGE_CLUB", "MANAGE_SPORTS") : List.of();
-        return new ContextResponse(user.getAccountType(), capabilities, null, List.of(), List.of());
+                ? List.of("MANAGE_CLUB", "MANAGE_SPORTS", "MANAGE_SEASONS", "MANAGE_TEAMS", "MANAGE_PLAYERS", "MANAGE_MEMBERSHIPS") : List.of();
+        if (user.getPersonId() == null) return new ContextResponse(user.getAccountType(), capabilities, null, List.of(), List.of());
+        LocalDate today = LocalDate.now(clock.withZone(ZoneId.of("Europe/Prague")));
+        var teams = teamData.currentTeamIds(user.getId(), user.getPersonId(), today).stream()
+                .map(id -> new ContextResponse.TeamContext(id, List.of("READ_TEAM"))).toList();
+        return new ContextResponse(user.getAccountType(), capabilities, teamData.ownPlayer(user.getPersonId()).orElse(null), teams, List.of());
     }
     private String optional(String value) { return value == null || value.isBlank() ? null : value.strip(); }
 }

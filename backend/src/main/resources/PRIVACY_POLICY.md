@@ -1,7 +1,9 @@
 # Informace o datech — pracovní text skeletonu
 
-Aktuální skeleton ukládá uživatelské jméno, UUID účtu, BCrypt hash hesla, technickou roli a čas vytvoření/změny účtu. Přihlášení používá nezbytnou session cookie JSESSIONID a CSRF token uložený v session.
+Aktuální základ P1/P2 ukládá uživatelské jméno, UUID účtu, BCrypt hash hesla, systémovou roli, typ a stav účtu a časy změn. Oddělená osoba má jméno, příjmení, volitelné datum narození, e-mail a telefon; hráčský profil vyžaduje datum narození. Evidují se sporty, sezóny, týmy a historie hráčských a trenérských členství. Hráč může být evidovaný bez přístupového účtu. Audit správních změn obsahuje technické identifikátory, nikoli kopie kontaktních údajů, hesel nebo instalačního tokenu. Přihlášení používá nezbytnou session cookie JSESSIONID a CSRF token uložený v session.
 
-V tomto školním základu používejte smyšlená testovací data. Hráčské profily, rodičovské vazby, zdravotní údaje, příspěvky a komunikace nejsou implementované. Toto není finální dokument ochrany osobních údajů. Před ostrým provozem tým a provozovatel doplní rozsah zpracování, správce a kontakt, dobu uchování, uživatelská práva a postup odstranění dat.
+Administrátor spravuje evidované osoby a členství. Týmová soupiska vrací jen jména a intervaly členství, nikoli kontakty a datum narození. Běžný účet potřebuje pro týmové čtení aktuální členství nebo trenérské přiřazení. Rodičovské vazby a dětské přihlášení, události, zdravotní údaje, příspěvky a komunikace zatím nejsou funkčně dostupné.
+
+V tomto školním základu používejte smyšlená testovací data. Toto není finální dokument ochrany osobních údajů. Před ostrým provozem tým a provozovatel doplní rozsah zpracování, správce a kontakt, dobu uchování, uživatelská práva a postup odstranění dat.
 
 Žádná analytika třetích stran ani platební brána není součástí skeletonu.

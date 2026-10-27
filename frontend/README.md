@@ -32,15 +32,23 @@ npm start
 - `/register`: registrace účtu; payload obsahuje pouze uživatelské jméno a heslo. Nový účet má `USER`/`STANDARD`, `personId: null` a `profileState: PENDING`. Registrace nepředstírá aktivní session.
 - `/login`: JSON přihlášení pomocí serverové session.
 - `/dashboard`: skutečný aktuální uživatel z `/auth/me`, typ účtu, stav profilu a navazující krok podle skutečného `/me/context`; odhlášení.
-- `/profile`: přihlášený STANDARD účet doplní vlastní jméno a příjmení; datum narození, e-mail a telefon jsou nepovinné. Po uložení se znovu načte účet, kontext a skutečná osoba z `/me/person`. Dokončené údaje jsou v P1 pouze ke čtení; pokud osoba již existuje, propojení musí ověřit správce, UI osoby neslučuje.
+- `/profile`: přihlášený STANDARD účet doplní vlastní jméno a příjmení; datum narození, e-mail a telefon jsou nepovinné. Po uložení se znovu načte účet, kontext a skutečná osoba z `/me/person`. Self-service údaje zůstávají pouze ke čtení; P2 ADMIN je může editovat v přehledu osob; pokud osoba již existuje, propojení musí ověřit správce, UI osoby neslučuje.
 - `/setup`: STANDARD účet s dokončeným profilem ověří stav nastavení a může jednou převzít správu neveřejným instalačním tokenem. PENDING, dokončené nastavení a nenakonfigurovaný token mají zakázané odeslání. CHILD tuto činnost nemá. Token patří pouze do POST těla; pole se při odeslání vymaže, nic se nezapisuje do URL, storage ani veřejné proměnné. Po úspěchu se obnoví role a skutečné schopnosti účtu.
 - `/admin/sports`: dokončený STANDARD ADMIN se schopností `MANAGE_SPORTS` načte stránkovaný seznam, přidává, přejmenovává, deaktivuje a znovu aktivuje sporty. Kód je stabilní, normalizuje se na velká písmena a používá `[A-Z][A-Z0-9_]{0,39}`; například FOOTBALL/BASKETBALL jsou hodnoty v DB, nikoli pevný sportovní enum. Žádný DELETE; deaktivace zachová záznam.
 
-Týmy, hráčské profily, rodičovské vazby, aktivace CHILD, události, statistiky, výsledky, příspěvky, komunikace a notifikace jsou **plánované funkce**; nemají fiktivní API ani ovládací prvky předstírající hotovou implementaci. P1 kontext vrací pouze implementované správní schopnosti, prázdné týmové/dětské seznamy a žádný vlastní hráčský profil. Rozsah dalších etap popisuje [pracovní plán](../docs/implementation-plan.md) a [roadmapa](../docs/roadmap.md).
+- `/admin`: rozcestník skutečných správních schopností z kontextu.
+- `/admin/seasons`: vytvoření, partial editace a potvrzená archivace sezóny.
+- `/admin/teams`: vlastní týmy i externí soupeři, jeden DB sport, zařazení do sezóny se samostatným názvem.
+- `/admin/players`: atomické vytvoření osoby a offline hráče nebo výslovný výběr existující osoby; editace osobních údajů.
+- `/admin/teams/[teamSeasonId]`: hráčská a trenérská členství, vlastní účet jako trenér, úplná změna intervalu `[od,do)`; prázdný konec je konec sezóny. Archivace skryje změnové formuláře.
+- `/teams`, `/teams/[teamSeasonId]`: scoped seznam a minimální soupiska; pouze ADMIN má historický datum filtr.
+- `/players/[playerId]`: minimální profil a povolená členská historie, bez kontaktů a financí.
+
+Rodičovské vazby a aktivace CHILD, události, statistiky, výsledky, finance, komunikace a notifikace jsou **plánované**. CHILD zůstává zablokovaný i na přímé týmové cestě. P2 kontext má šest skutečných správních schopností a teamContexts jen z aktuálních vazeb. Rozsah dalších etap popisuje [pracovní plán](../docs/implementation-plan.md).
 
 ## API a session
 
-Zachovali jsme klienta `src/api/api.ts`, jeho DTO, překlad chyb a `AuthContext` ze šablony. Axios používá `withCredentials: true`. Základní URL již obsahuje `/api`; metody připojují `/auth/...`, `/info/...`, `/me/...`, `/club/...` a `/sports`. Typovaný `mutateWithCsrf` před každým POST/PUT/PATCH/DELETE načte nový token z `/auth/csrf` a odešle jej v `X-CSRF-TOKEN`. Token se necacheuje, změnové požadavky se automaticky neopakují. Operace P1 jsou v `src/api/club.ts`, společné DTO v `src/api/types.ts`.
+Zachovali jsme klienta `src/api/api.ts`, jeho DTO, překlad chyb a `AuthContext` ze šablony. Axios používá `withCredentials: true`. Základní URL již obsahuje `/api`; metody připojují `/auth/...`, `/info/...`, `/me/...`, `/club/...` a `/sports`. Typovaný `mutateWithCsrf` před každým POST/PUT/PATCH/DELETE načte nový token z `/auth/csrf` a odešle jej v `X-CSRF-TOKEN`. Token se necacheuje, změnové požadavky se automaticky neopakují. Operace P1 jsou v `src/api/club.ts`, týmové P2 v `src/api/teams.ts`, společné DTO v `src/api/types.ts`.
 
 `AuthProvider` je Client Component. Po obnovení stránky načte `/auth/me` a `/me/context`: **401** znamená anonymní session, zatímco síťová chyba, 403 či 5xx znamená neověřenou session a zobrazí retry. Opožděný účet/kontext nesmí přepsat novější refresh nebo obnovit odhlášenou session. Kontext se obnovuje po doplnění osoby a převzetí správy; PENDING nevyvolává chráněné volání `/me/person`, `/club/setup-status` ani `/sports`.
 
@@ -52,7 +60,7 @@ Heslo má nejméně 6 znaků a nejvýše 72 UTF-8 bajtů kvůli BCrypt; limit se
 
 ## Testy
 
-`npm test` spouští Vitest s Testing Library, jsdom a Axios mock adaptérem. Zachovává CSRF/auth regresi a přidává P1 kontrakty, doplnění osoby, obecné/field chyby, chránění PENDING a ADMIN, token bez persistence, obnovu role/kontextu, pozdní auth odpovědi, empty/error/403/retry, stránkování a vytvoření/přejmenování/deaktivaci sportu bez DELETE. Testy jsou v `src/api/*.test.ts`, `src/context/AuthContext.test.tsx` a `src/components/*.test.tsx`.
+`npm test` spouští Vitest s Testing Library, jsdom a Axios mock adaptérem. Zachovává CSRF/auth regresi a přidává P1 kontrakty, doplnění osoby, obecné/field chyby, chránění PENDING a ADMIN, token bez persistence, obnovu role/kontextu, pozdní auth odpovědi, empty/error/403/retry, stránkování a vytvoření/přejmenování/deaktivaci sportu bez DELETE. P2 navíc testuje přístupové brány, sezónu/archivaci, atomické založení hráče, výběr existující osoby, konfliktní členství, minimální soupisku, intervaly a opožděné zdrojové odpovědi. Testy jsou v `src/api/*.test.ts`, `src/context/AuthContext.test.tsx` a `src/components/**/*.test.tsx`.
 
 Testy s mock adaptérem ověřují frontendovou integraci; samotné cookies, CORS a zabezpečení serveru se ověřují také backendovými HTTP integračními testy a Playwrightem nad skutečnou běžící sestavou. Pro Playwright podle [kořenového README](../README.md) nejprve spusťte frontend/backend:
 
@@ -61,7 +69,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-`e2e/auth.spec.ts` zachovává registraci/login/reload/logout a výpadek API na desktopu i mobilu. `e2e/club-setup.spec.ts` potřebuje samostatnou čistou testovací DB, nakonfigurovaný soukromý setup token a `E2E_SETUP_TOKEN` v testovacím procesu; protože setup je jednorázový, scénář se mezi desktopem a mobilem spouští nad odděleně obnovenou DB. Přesný postup a skutečné výsledky eviduje [ověření](../docs/verification.md). Testovací token nevkládejte do frontend `.env.local` ani `NEXT_PUBLIC_*`.
+`e2e/auth.spec.ts` zachovává registraci/login/reload/logout a výpadek API na desktopu i mobilu. `e2e/club-setup.spec.ts` potřebuje samostatnou čistou testovací DB, nakonfigurovaný soukromý setup token a `E2E_SETUP_TOKEN` v testovacím procesu; protože setup je jednorázový, scénář se mezi desktopem a mobilem spouští nad odděleně obnovenou DB. Nový `e2e/roster.spec.ts` ověřuje celý P1/P2 průchod včetně obou sportů, přestupu a archivu. Nad jednou DB vyberte **jen jeden** z jednorázových setup scénářů: `npm run test:e2e -- auth.spec.ts roster.spec.ts --project=desktop` (nebo `club-setup.spec.ts` místo rosteru); nikdy oba setup scénáře současně. Mobil vyžaduje další čistou izolovanou DB. Přesný postup a skutečné výsledky eviduje [ověření](../docs/verification.md). Testovací token nevkládejte do frontend `.env.local` ani `NEXT_PUBLIC_*`.
 
 Přesné verze jsou v `package.json` a `package-lock.json`. Next.js **16.3.8** byl vybrán z podporované [Active LTS řady](https://nextjs.org/support-policy) podle [oficiálního přehledu bezpečnostních vydání](https://nextjs.org/blog); React a React DOM **19.3.0** odpovídají peer dependencies Next.js. Před další etapou znovu ověřte bezpečnostní aktualizace a `npm audit`.
 

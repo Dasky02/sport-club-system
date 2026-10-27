@@ -1,6 +1,6 @@
 # Doménový model sportovního klubu
 
-Tento dokument popisuje cílovou doménu podle `zadani_sportovni_klub_v2.odt` a upřesnění zadání. **Implementovaný P1 je pouze první část E1:** k E0 účtům/auth/info přidává vlastní osobu, aktuální kontext, klubový setup, audit a správu sportů. Týmy, hráči, rodiče/CHILD aktivace, účast, soutěže, finance, notifikace a komunikace níže zůstávají **plánované**. Samotný doménový návrh není důkaz dostupného API nebo provedené akceptace; skutečný rozsah a výsledky uvádějí [kontrakt](api-contract.md) a [ověření](verification.md).
+Tento dokument popisuje cílovou doménu podle `zadani_sportovni_klub_v2.odt` a upřesnění zadání. **Implementované P1/P2 jsou část E1:** identita, setup, sporty, sezóny, týmy, offline hráči, intervalová členství a scoped soupisky/historie. Rodiče/CHILD aktivace, účast, soutěže, finance, notifikace a komunikace níže jsou **plánované**. Guardian tabulka v P2 je jen základ P3. Skutečný rozsah a důkazy určují [kontrakt](api-contract.md) a [ověření](verification.md).
 
 ## Architektura a hranice
 
@@ -12,7 +12,7 @@ Nové doménové balíčky budou postupně členěny na `member`, `team`, `event
 
 `Person` uchovává jméno, datum narození a nezbytné kontakty. P1 dovoluje dokončit a přečíst vlastní osobu; obecný CRUD cizích osob není implementovaný. `User` má po V2 dočasně nullable `person_id`: staré i nově registrované účty bez osoby mají PENDING onboarding, nikoli odvozené osobní údaje z loginu. V cílové doméně je účet osoby volitelný a `PlayerProfile` její samostatný profil; společnou osobu budou sdílet přes `person_id`. Hráče i rodiče půjde evidovat bez přihlášení. Trenérská oprávnění vzniknou přes časové `coach_team_memberships` v P2, nikoli samotným dokončením osoby.
 
-P1 používá systémovou roli `USER/ADMIN` a typ účtu `STANDARD/CHILD`. V2 zachová ADMIN a staré COACH/PLAYER/PARENT převede na USER; `legacy_role` je pouze neveřejná migrační evidence, nezakládá oprávnění. Současný P1 kontext má nejvýše MANAGE_CLUB/MANAGE_SPORTS pro dokončeného ADMIN, jinak žádné klubové schopnosti. Kombinovatelné trenérské, hráčské a rodičovské kontexty se doplní podle platných vztahů v P2/P3. Veřejná registrace nepřijímá privilegovanou roli, typ účtu, tým ani rodičovskou vazbu jako oprávnění.
+P1 používá systémovou roli `USER/ADMIN` a typ účtu `STANDARD/CHILD`. V2 zachová ADMIN a staré COACH/PLAYER/PARENT převede na USER; `legacy_role` je pouze neveřejná migrační evidence, nezakládá oprávnění. P2 kontext má šest správních schopností pro dokončeného ADMIN, ownPlayerId přes stejnou osobu a READ_TEAM pro aktuální hráčské/trenérské vazby. Rodičovský kontext a aktivace CHILD přijdou v P3. Veřejná registrace nepřijímá privilegovanou roli, typ účtu, tým ani rodičovskou vazbu jako oprávnění.
 
 `GuardianLink` propojuje osobu rodiče nebo zákonného zástupce s hráčským profilem dítěte. Schvaluje ji administrátor; samotná shoda příjmení ani znalost ID nestačí. Pro přístup rodiče se propojí `users.person_id` s osobou schváleného zástupce. Rodič může mít více dětí a dítě více zástupců. Při odvolání vazby další požadavky přístup ztratí. Rodič vidí schválené dítě, jeho sportovní údaje a příspěvky, ale nezapisuje výsledky ani nominace.
 

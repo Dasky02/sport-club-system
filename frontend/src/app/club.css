@@ -53,6 +53,119 @@
   border-color: var(--danger);
 }
 
+.field select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #c7d2c9;
+  border-radius: 8px;
+  padding: 12px 13px;
+  background: #fbfcf9;
+  color: var(--ink);
+  font: inherit;
+  font-size: .94rem;
+}
+
+.field select:focus-visible {
+  outline: 3px solid #559b8d;
+  outline-offset: 4px;
+}
+
+.club-admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding-bottom: 20px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+
+.club-admin-nav a {
+  font-size: .85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.club-admin-nav a[aria-current="page"] {
+  text-decoration: underline;
+}
+
+.club-section {
+  margin-top: 36px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line);
+}
+
+.club-stack {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  min-width: 0;
+}
+
+.club-stack > h2 {
+  margin-bottom: 0;
+}
+
+.club-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  align-items: start;
+  gap: 22px;
+}
+
+.club-page .actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.club-form .actions {
+  margin: 16px 0 0;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 15px 0;
+  font-size: .9rem;
+}
+
+.checkbox-field input {
+  width: 18px;
+  height: 18px;
+}
+
+.confirmation {
+  background: #f4f1e8;
+  border: 1px solid #e0d9c6;
+  border-radius: 10px;
+  padding: 18px;
+  margin-top: 16px;
+}
+
+.confirmation .text-button {
+  margin-left: 15px;
+}
+
+.inline-filter {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 25px 0;
+}
+
+.inline-filter .field {
+  margin-bottom: 0;
+  min-width: 190px;
+}
+
+.detail-card h2,
+.detail-card h3,
+.detail-card p {
+  overflow-wrap: anywhere;
+}
+
 .field input:disabled {
   background: #f0f2ed;
   color: var(--muted);
