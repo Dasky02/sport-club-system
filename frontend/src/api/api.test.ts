@@ -1,3 +1,4 @@
+import { completeUser } from "@/test/fixtures";
 import MockAdapter from "axios-mock-adapter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -6,7 +7,7 @@ import {
 } from "./api";
 import { mapErrorToMessage } from "./errorMapper";
 
-const user = { id: "00000000-0000-0000-0000-000000000001", username: "tester", role: "USER", createdAt: "2026-10-05T10:00:00Z" };
+const user = completeUser;
 const credentials = { username: "tester", password: "test-password" };
 let mock: MockAdapter;
 

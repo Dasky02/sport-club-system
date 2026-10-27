@@ -4,185 +4,118 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authorization.AuthorizationDeniedException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
-
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-/**
- * Globální zpracování výjimek pro REST API.
- */
+/** Chyby obsahují pouze serverem definované zprávy, nikdy vstup ani SQL diagnostiku. */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    /**
-     * Zpracování neplatných argumentů (400).
-     */
-    @ExceptionHandler({IllegalArgumentException.class})
-    public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException ex) {
-        log.warn("Unvalid request: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error("BAD_REQUEST", ex.getMessage()));
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<Map<String, Object>> handleApi(ApiException ex) {
+        return ResponseEntity.status(ex.status()).body(withFields(ex.code(), ex.getMessage(), ex.fieldErrors()));
     }
-
-    /**
-     * Zpracování konfliktů (409).
-     */
-    @ExceptionHandler({IllegalStateException.class})
-    public ResponseEntity<Map<String, Object>> handleConflict(IllegalStateException ex) {
-        log.warn("Conflict: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("CONFLICT", ex.getMessage()));
-    }
-
-    /**
-     * Zpracování validačních chyb (400).
-     */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
-        var fieldErrors = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> Map.of(
-                        "field", fe.getField(),
-                        "message", fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "Invalid value"
-                ))
-                .toList();
-        log.warn("Validation failed: {}", fieldErrors);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error("VALIDATION_ERROR",
-                "Validation failed for one or more fields", fieldErrors.toString()
-        ));
-    }
-
-    /**
-     * Zpracování chyb při bindování dat (400).
-     */
     @ExceptionHandler(BindException.class)
-    public ResponseEntity<Map<String, Object>> handleBind(BindException ex) {
-        var fieldErrors = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> Map.of(
-                        "field", fe.getField(),
-                        "message", fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "Invalid value"
-                ))
-                .toList();
-        log.warn("Binding failed: {}", fieldErrors);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error("VALIDATION_ERROR",
-                "Binding failed for one or more fields", fieldErrors.toString()));
+    public ResponseEntity<Map<String, Object>> handleValidation(BindException ex) {
+        var fields = ex.getBindingResult().getFieldErrors().stream().map(this::safeField).toList();
+        return ResponseEntity.badRequest().body(withFields("VALIDATION_ERROR", "Validation failed for one or more fields", fields));
     }
-
-    /**
-     * Zpracování nenalezených entit (404).
-     */
+    private FieldErrorResponse safeField(FieldError field) {
+        String name = field.getField();
+        if (name.equals("passwordWithinBcryptLimit")) name = "password";
+        if (name.equals("changePresent")) name = "name";
+        String code = field.getCode() == null ? "Invalid" : field.getCode();
+        String message = switch (code) {
+            case "NotNull", "NotBlank" -> "This field is required";
+            case "Size" -> "Length is outside the allowed range";
+            case "Email" -> "Invalid email address";
+            case "Pattern" -> "Invalid format";
+            default -> "Invalid value";
+        };
+        return new FieldErrorResponse(name, code, message);
+    }
+    @ExceptionHandler({HttpMessageNotReadableException.class, IllegalArgumentException.class})
+    public ResponseEntity<Map<String, Object>> handleBadRequest(Exception ex) {
+        return ResponseEntity.badRequest().body(error("BAD_REQUEST", "Invalid request body or value"));
+    }
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(withFields("VALIDATION_ERROR", "Invalid request parameter",
+                List.of(new FieldErrorResponse(ex.getName(), "TYPE", "Invalid value"))));
+    }
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("CONFLICT", "Operation conflicts with current state"));
+    }
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(NoSuchElementException ex) {
-        log.warn("Entity not found: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Resource not found"));
     }
-
-    /**
-     * Zpracování nenalezených uživatelů (404).
-     */
-    @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleUsernameNotFound(UsernameNotFoundException ex) {
-        log.warn("Username not found: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", ex.getMessage()));
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingRoute(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Resource not found"));
     }
-
-    /**
-     * Zpracování odmítnuté autorizace (403).
-     */
-    @ExceptionHandler({AuthorizationDeniedException.class})
-    public ResponseEntity<Map<String, Object>> handleForbidden(AuthorizationDeniedException ex) {
-        log.warn("Authorization denied: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN", "Authorization denied"));
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnsupportedMethod(HttpRequestMethodNotSupportedException ex) {
+        var response = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
+        if (ex.getSupportedHttpMethods() != null) {
+            response.allow(ex.getSupportedHttpMethods().toArray(org.springframework.http.HttpMethod[]::new));
+        }
+        return response.body(error("METHOD_NOT_ALLOWED", "HTTP method is not supported"));
     }
-
-    /**
-     * Zpracování porušení integrity dat (409).
-     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
-        log.warn("Data integrity violation: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(error("CONFLICT", "Unique constraint violated"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("CONFLICT", "Operation conflicts with existing data"));
     }
-
-    /**
-     * Zpracování špatných přihlašovacích údajů (401).
-     */
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<Map<String, Object>> handleBadCredentials(BadCredentialsException ex) {
-        log.warn("Bad credentials: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(error("UNAUTHORIZED", "Bad credentials"));
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, Object>> handleAuthentication(AuthenticationException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Authentication required"));
     }
-
-    /**
-     * Zpracování odmítnutého přístupu (403).
-     */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleDenied(AccessDeniedException ex) {
-        log.warn("Access denied: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN", "Access denied"));
     }
-
-    /**
-     * Zpracování výjimek s nastaveným HTTP statusem.
-     */
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
-        log.warn("Response status exception: {}", ex.getMessage());
-        return ResponseEntity.status(ex.getStatusCode())
-                .body(error(ex.getStatusCode().toString(), ex.getReason() != null ? ex.getReason() : ex.getMessage()));
+        return ResponseEntity.status(ex.getStatusCode()).body(error(ex.getStatusCode().toString(), "Request could not be completed"));
     }
-
-    /**
-     * Zpracování I/O chyb při načítání zdrojů (500).
-     */
     @ExceptionHandler(IOException.class)
     public ResponseEntity<Map<String, Object>> handleIO(IOException ex) {
-        log.error("I/O error: {}", ex.getMessage(), ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(error("INTERNAL_SERVER_ERROR", "Failed to read application resource"));
+        log.error("Application resource I/O failure ({})", ex.getClass().getSimpleName());
+        return ResponseEntity.internalServerError().body(error("INTERNAL_SERVER_ERROR", "Failed to read application resource"));
     }
-
-    /**
-     * Zpracování neočekávaných výjimek (500).
-     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleOther(Exception ex) {
-        log.error("Unexpected error: {}", ex.getMessage(), ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(error("INTERNAL_SERVER_ERROR", "Unexpected error"));
+        log.error("Unexpected request failure ({})", ex.getClass().getSimpleName());
+        return ResponseEntity.internalServerError().body(error("INTERNAL_SERVER_ERROR", "Unexpected error"));
     }
-
-    /**
-     * Pomocná metoda pro vytvoření strukturované chybové odpovědi.
-     */
+    private static Map<String, Object> withFields(String code, String message, List<FieldErrorResponse> fields) {
+        Map<String, Object> result = new LinkedHashMap<>(error(code, message));
+        if (!fields.isEmpty()) {
+            result.put("details", "Validation failed for one or more fields");
+            result.put("fieldErrors", fields);
+        }
+        return result;
+    }
     public static Map<String, Object> error(String code, String message) {
-        return Map.of(
-                "timestamp", OffsetDateTime.now().toString(),
-                "code", code,
-                "message", message
-        );
+        return Map.of("timestamp", OffsetDateTime.now().toString(), "code", code, "message", message);
     }
-
-    /**
-     * Přetížená pomocná metoda pro vytvoření strukturované chybové odpovědi s detaily.
-     */
     public static Map<String, Object> error(String code, String message, String details) {
-        return Map.of(
-                "timestamp", OffsetDateTime.now().toString(),
-                "code", code,
-                "message", message,
-                "details", details
-        );
+        Map<String, Object> result = new LinkedHashMap<>(error(code, message)); result.put("details", details); return result;
     }
 }

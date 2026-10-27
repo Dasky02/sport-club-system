@@ -4,12 +4,20 @@
 
 Postup v README sestaví DB, backend i standalone Next.js. Po `cp .env.example .env` nastavte soukromé DB heslo. Žádné skutečné env soubory nejsou verzované ani v Docker build contextu. `NEXT_PUBLIC_API_URL` musí být URL dosažitelná z prohlížeče a je vložena při build; `backend` je pouze hostname vnitřní Docker sítě.
 
+## Prvotní setup P1 a upgrade
+
+P1 vyžaduje pro nové převzetí správy soukromý `CLUB_SETUP_TOKEN` pouze v backendu. `.env.example` má prázdnou hodnotu, která setup vypíná. Provozovatel nastaví vlastní náhodný token před startem/restartem backendu; nejde o veřejný build argument, NEXT_PUBLIC proměnnou, URL nebo výchozí účet. Po registraci a doplnění vlastní osoby použije `/setup`. Jediný platný požadavek pod zámkem vytvoří prvního ADMIN a audit. Dokončení se ukládá do DB a opakování blokuje i při stále nastaveném tokenu. Po dokončení lze token z prostředí odstranit a backend restartovat.
+
+V1 se nepřepisuje. V2 zachová účty/hashe/UUID/časy a přidá persons/club/audit/sports; person_id je přechodně nullable. Starý USER či bývalý COACH/PLAYER/PARENT se přihlásí a nejprve doplní vlastní osobu, žádná jména nebo vztahy se negenerují z loginu. Existující ADMIN zůstane a V2 uzavře bootstrap, takže nový token nemůže převzít už spravovanou instalaci. I tento ADMIN dokončí vlastní osobu před správou sportů. P1 CHILD blokuje; aktivace vyžaduje budoucí P3.
+
+Před upgradem zálohujte databázi a nasazujte odpovídající backend i frontend společně. Po startu ověřte vlastní onboarding, aktuální kontext, dostupnost setupu a ADMIN sporty. Úspěšný výsledek patří do verification, nikoli se neodvozuje z existence návodu. V2 není hotová E1: žádné týmy, rodiče, finance, události nebo komunikace dosud nedodává.
+
 ## HTTPS produkce
 
 Připravená konfigurace používá [Caddy automatické HTTPS](https://caddyserver.com/docs/automatic-https). Veřejné nasazení této instance zatím neproběhlo; funkční certifikát lze ověřit až s vlastní doménou a dostupným serverem.
 
 1. Připravte Linux server s Docker/Compose v2 a klonem nového repozitáře. DNS A/AAAA pro vlastní doménu musí směřovat na server; povolte veřejné porty 80 a 443.
-2. V soukromém `.env` nastavte silné vlastní POSTGRES_PASSWORD, PUBLIC_HOST bez schématu/cesty a ACME_EMAIL. Neužívejte sample password. Uchovejte soubor s omezenými oprávněními (`chmod 600 .env`).
+2. V soukromém `.env` nastavte silné vlastní POSTGRES_PASSWORD, PUBLIC_HOST bez schématu/cesty a ACME_EMAIL. Pro dosud nenastavený klub přidejte vlastní soukromý CLUB_SETUP_TOKEN; bez něj je převzetí vypnuté. Neužívejte sample password. Uchovejte soubor s omezenými oprávněními (`chmod 600 .env`).
 3. Spusťte:
 
 ```sh
@@ -21,7 +29,7 @@ Override zabuduje `https://PUBLIC_HOST/api` do frontendu, nastaví přesný CORS
 
 4. Ověřte HTTPS redirect, platnost certifikátu a `/api/actuator/health`. V prohlížeči projděte registraci/login/refresh/logout; cookie musí být HttpOnly, Secure, SameSite=Lax a Path=/api. Chybný CSRF nebo cizí origin musí selhat. Lokální integrační testy nenahrazují tento produkční smoke test.
 
-Samotná registrace poskytuje jen USER. Dosud není implementované administrátorské přiřazování klubových rolí; veřejný skeleton nepoužívejte jako dokončený klubový provoz. Dev ani produkce nemá účet s výchozím heslem. Dokumenty podmínek a soukromí v informačním API jsou pracovní texty skeletonu, před ostrým provozem je doplní provozovatel.
+Samotná registrace poskytuje USER/STANDARD/PENDING. P1 má jednorázový setup a správu sportů; obecné přidělování rolí, týmy, rodiče a další klubová agenda dosud nejsou implementované. P1 nepoužívejte jako dokončený klubový provoz. Dev ani produkce nemá účet s výchozím heslem. Dokumenty podmínek a soukromí v informačním API jsou pracovní texty skeletonu, před ostrým provozem je doplní provozovatel.
 
 ## Aktualizace, záloha a obnova
 

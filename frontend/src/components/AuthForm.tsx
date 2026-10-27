@@ -51,12 +51,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   }
 
   if (registered) {
-    return <section className="auth-card"><p className="eyebrow">Registrace dokončena</p><h1>Účet je připravený.</h1><p role="status">Účet byl vytvořen s rolí USER. Nyní se přihlaste. Klubová oprávnění vám přidělí administrátor.</p><Link className="button" href="/login">Přejít k přihlášení</Link></section>;
+    return <section className="auth-card"><p className="eyebrow">Registrace dokončena</p><h1>Účet je připravený.</h1><p role="status">Účet byl vytvořen s rolí USER jako běžný účet. Nyní se přihlaste a doplňte vlastní osobní údaje. Registrace nevytváří členství ani správní oprávnění.</p><Link className="button" href="/login">Přejít k přihlášení</Link></section>;
   }
 
   return (
     <section className="auth-layout">
-      <div className="auth-intro"><p className="eyebrow">Sport Club System</p><h1>{isRegister ? "Začněte vlastním účtem." : "Vítejte zpátky v klubu."}</h1><p className="lead">{isRegister ? "Vytvořte si účet pro přístup do systému. Role trenéra, hráče či rodiče spravuje administrátor." : "Přihlaste se uživatelským jménem a heslem. Vaše přihlášení spravuje serverová session."}</p><Link className="back-link" href="/">← Zpět na úvod</Link></div>
+      <div className="auth-intro"><p className="eyebrow">Sport Club System</p><h1>{isRegister ? "Začněte vlastním účtem." : "Vítejte zpátky v klubu."}</h1><p className="lead">{isRegister ? "Vytvořte si běžný účet. Po přihlášení dokončíte osobní údaje; klubové vztahy a oprávnění vznikají samostatně." : "Přihlaste se uživatelským jménem a heslem. Vaše přihlášení spravuje serverová session."}</p><Link className="back-link" href="/">← Zpět na úvod</Link></div>
       <div className="auth-card">
         <h2>{isRegister ? "Vytvořit účet" : "Přihlášení"}</h2>
         <form onSubmit={submit} aria-busy={pending}>

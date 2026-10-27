@@ -1,8 +1,8 @@
-# Ověření etapy 1
+# Ověření projektu
 
-Ověřeno 5. 10. 2026 nad novým samostatným `sport-club-system`, odvozeným ze šablony commit 32dded5e33b83f038655199eb81044fa3d4c66a8. Výchozí stav a chyby před úpravami jsou v [baseline](baseline.md). Toto je výsledek technického skeletonu, ne akceptace klubových funkcí.
+Historické ověření E0 z 5. 10. 2026 nad novým samostatným `sport-club-system`, odvozeným ze šablony commit 32dded5e33b83f038655199eb81044fa3d4c66a8. Výchozí stav a chyby před úpravami jsou v [baseline](baseline.md). Aktuální ověření P1 z 27. 10. 2026 je na konci dokumentu; starší výsledky nejsou automaticky důkazem nové verze.
 
-## Provedené kontroly
+## Provedené kontroly E0 — 5. 10. 2026
 
 | Kontrola | Výsledek a důkaz |
 | --- | --- |
@@ -42,7 +42,52 @@ Testy vytvářejí jedinečné smyšlené účty; spouštějte je nad vývojový
 - **GitHub CI spuštěno při publikaci** do [Dasky02/sport-club-system](https://github.com/Dasky02/sport-club-system); aktuální stav jednotlivých commitů je v [Actions](https://github.com/Dasky02/sport-club-system/actions/workflows/ci.yml). Místní kontroly odpovídající CI a syntaktický actionlint prošly. **Release a GHCR dosud nespouštěny**: publikování zdrojového repozitáře nevydalo release ani nenahrálo images.
 - **Veřejné produkční HTTPS/ACME nasazení s vlastní doménou neproběhlo.** HTTPS je konfigurované a lokálně ověřené, nikoli živě veřejně nasazené. Produkční DNS/porty/certifikát a cookies tým ověří dle [deployment](deployment.md).
 - **Záloha/obnova nebyla provozně provedena.** Postup je dokumentovaný, finální akceptace musí ověřit obnovitelnost skutečné zálohy.
-- **Doménové funkce ani doménové akceptační scénáře zatím neimplementované/neprovedené.** Dva sporty, admin statistiky/tabulky, týmy, události/účast, rodičovské vazby, finance, notifikace, messaging a historie jsou konkrétní návrh a povinné další etapy. Přehled v [requirements](requirements.md) a [roadmap](roadmap.md).
+- **P1 nově dodává vlastní osobu, setup a správu sportů; ostatní doménové funkce zůstávají plánované.** Týmy, hráči, rodičovské vazby a aktivace CHILD, události/účast, soutěže, statistiky, finance, notifikace, messaging a sportovní historie stále vyžadují navazující implementaci. Samotné založení sportů není akceptace jejich výsledkových scénářů. Přehled v [requirements](requirements.md) a [roadmap](roadmap.md).
 - Statický credential check je kontrola známých patternů a souborů, ne záruka neexistence libovolné tajné hodnoty. Před veřejným publikováním byl finální Git obsah zkontrolovaný; žádné skutečné env hodnoty se do repozitáře nepřevzaly. Kontrola se opakuje v CI.
 
 Nový [veřejný repozitář](https://github.com/Dasky02/sport-club-system) byl vytvořen a nahrán po kontrole obsahu na výslovnou žádost uživatele. GitHub uvádí PUBLIC, isFork=false a výchozí větev main; historie začíná vlastním root commitem. Původní privátní template nebyl cílem žádné write operace.
+
+## Kontrola přípravy implementace — 27. 10. 2026
+
+Nad výchozím `main` `c0b52d6` byl doplněn [pracovní plán](implementation-plan.md), [plánovaný API kontrakt](api-contract.md) a [pokyny pro navazující práci](../AGENTS.md). Doménové SQL/API/UI se touto změnou neimplementují. Předchozí výsledky z 5. 10. nejsou novým testem této přípravy.
+
+- **PASS:** kontrola veřejného obsahu nad 108 verzovanými/neignorovanými soubory, kontrola lokálních Markdown odkazů, čtyř JSON příkladů API a whitespace v upravené dokumentaci.
+- **PASS:** porovnání migračního plánu s DBML pokrývá všech 38 tabulek právě jednou. Prověřeny závislosti fee tabulek před notifikacemi a dodatečného vytvoření cyklického FK aktivní výsledkové revize. Jde o kontrolu návrhu, nikoli provedenou migraci.
+- **Ověřeno prostředí:** dostupná Java 17.0.15 a Maven Wrapper 3.9.12; výchozí shell má Java 25.0.2, proto je nutná volba JDK 17 pro projekt. Node 24.14.0, npm 11.15.0, Python 3.12.5, běžící Docker daemon 28.5.1. PostgreSQL image nebyla v lokální cache; stav běžící aplikace ani vývojové DB tato kontrola nepotvrzuje.
+- **Neprovedeno v této změně:** nové backend/frontend testy, browserové průchody, audit závislostí, produkční nasazení a restore. Změněna je pouze dokumentace; před prvním implementačním balíčkem se obnoví technický baseline podle pracovního plánu.
+
+## Implementace a ověření P1 — 27. 10. 2026
+
+Lokální větev `feat/identity-and-club-setup`, výchozí `main` `c0b52d6`. Dodané skutečné funkce: V2 identity/klub/audit/sporty, vlastní onboarding, USER/ADMIN a STANDARD/CHILD datový základ, aktuální serverový kontext, jednorázový setup a administrátorská správa sportů. CHILD je do doplnění hráčských a rodičovských vazeb zablokovaný; P1 ještě nedodává P2/P3 ani celou E1.
+
+| Kontrola | Skutečný výsledek |
+| --- | --- |
+| Výchozí baseline před implementací | Maven verify **9/9 PASS**, frontend lint/typecheck a **16/16 testů PASS**. |
+| Finální backend | Java 17 / `./mvnw -B -ntp verify`: **25 testů PASS**, 0 failures, 0 errors, 0 skipped. Šest unit testů a 19 integračních/upgrade scénářů. Výstupní JAR sestaven. |
+| Upgrade V1 → V2 | Skutečná V1 fixture se všemi pěti původními rolemi: zachována všechna UUID, hashe a časy. COACH/PLAYER/PARENT přejdou na USER bez domyšlených osob/vztahů. Existující nejstarší ADMIN zůstane a uzavře setup s auditem; bez ADMIN migrace nikoho nepovýší. V1 soubor se nezměnil. |
+| Autorizace a souběh | PENDING omezený na vlastní onboarding/kontext; role a enabled aktuální i se starou session. CHILD/deaktivovaný/smazaný účet odmítnut. Dva setupy mají právě jednoho vítěze, souběžný onboarding nevytvoří osiřelou osobu. Service po čekání na klubový zámek znovu odmítne odebraného ADMIN. Requestové security contexty nesdílejí mutovanou session instanci. |
+| Setup, validace a sporty | Chybný token nic nezmění; prázdná konfigurace vrátí nedostupný setup; opakování po úspěchu odmítnuto. Strukturované chyby bez vstupních tajných hodnot. Fotbal a basketbal vytvořeny přes stejné API, stránkování, stabilní kód, přejmenování a deaktivace; běžný účet nemá přístup. Chybějící CSRF odmítnut, nepovolený DELETE vrátí 405 bez smazání. |
+| Finální frontend | **47/47 testů PASS**, lint/typecheck/build **PASS**. Testy zahrnují skutečný API transport s HTTP mockem, osobu, setup, nezapisování tokenu do storage, obnovu role/kontextu, auth race, chyby a sportovní formuláře. Partial PATCH mění pouze požadované pole; deaktivace ze staré karty nepřepíše cizí přejmenování. |
+| Browser desktop | Chromium proti skutečnému JAR a produkčnímu Next standalone, PostgreSQL 16: **3/3 PASS**. Auth/session/logout, odlišení výpadku, celý P1 průchod včetně chybného/opakovaného setupu a přejmenování/deaktivace. |
+| Browser mobil | Pixel 7, nezávislá čistá testovací DB se znovu provedenou V1/V2: **3/3 PASS**, stejné scénáře. Celkem desktop+mobil **6/6**, žádný přeskočený scénář. |
+| Vizuální kontrola | Prohlédnuty desktopový a mobilní screenshot správy sportů; čitelné formuláře/karty a ověřená absence horizontálního přetékání. |
+| Konfigurace a obsah | Všechny tři Compose konfigurace validní s `.env.example`; kontrola veřejného obsahu a `git diff --check` prošly. Token je jen soukromý backend env, nemá výchozí hodnotu a neposílá se do frontend buildu. |
+
+Browserové ověření použilo pouze vytvořenou zahoditelnou DB na portu 15432, backend 18080 a frontend 13000; běžná vývojová data nebyla resetována. Frontend byl sestaven s testovací veřejnou URL `http://localhost:18080/api`. Pro obvyklý vývoj/build použijte vlastní `NEXT_PUBLIC_API_URL` podle README. Testovací přihlašovací údaje nebyly produkční a nejsou seedem aplikace. Lokální logy/screenshoty jsou ignorované v `.verification/`.
+
+Reprodukce P1 browserového scénáře: nad **samostatnou novou testovací DB** nakonfigurujte backendový `CLUB_SETUP_TOKEN`, spusťte odpovídající frontend/backend a nastavte tutéž hodnotu jako soukromý `E2E_SETUP_TOKEN` jen v shellu testovacího procesu. Dále:
+
+```sh
+cd frontend
+E2E_SETUP_PROJECT=desktop npm run test:e2e -- --project=desktop
+```
+
+Mobilní průchod spusťte až nad další čistou izolovanou DB/restartovaným backendem:
+
+```sh
+E2E_SETUP_PROJECT=mobile npm run test:e2e -- --project=mobile
+```
+
+Pro jiné porty přidejte `E2E_BASE_URL` a `E2E_API_URL`. Token nikdy nepatří do `NEXT_PUBLIC_*`, URL ani sdíleného příkazu s jeho hodnotou. Bez explicitního testovacího tokenu je jednorázový P1 scénář přeskočen; obyčejné auth scénáře běží dál. Tyto testy se nepouštějí nad živým klubem a běžná data se kvůli nim nemažou.
+
+**Neprovedeno pro P1:** nové sestavení celých Docker images, nové HTTPS/ACME ověření, veřejné nasazení, provozní restore, nový audit závislostí a GitHub CI této lokální větve. Produkční runtime byl ověřen jako sestavený JAR + Next standalone, Compose jako konfigurace. Staré HTTPS ověření E0 zůstává historickým výsledkem. Žádný plánovaný týmový, finanční nebo sportovní výsledkový scénář se tímto neoznačuje za hotový.

@@ -1,6 +1,7 @@
 package cz.jpmad.springprojecttemplate.model.user;
 
 import cz.jpmad.springprojecttemplate.model.user.enums.Role;
+import cz.jpmad.springprojecttemplate.model.user.enums.AccountType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -40,6 +41,16 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role = Role.USER;
+
+    @Column(name = "person_id", unique = true)
+    private UUID personId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", nullable = false, length = 20)
+    private AccountType accountType = AccountType.STANDARD;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

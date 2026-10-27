@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
+import "./club.css";
 
 export const metadata: Metadata = {
   title: { default: "Sport Club System", template: "%s | Sport Club System" },
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <main id="main" className="page-shell">{children}</main>
           <footer className="site-footer">
             <span>Sport Club System</span>
-            <span>Ročníkový projekt · Technický základ, etapa 1</span>
+            <span>Ročníkový projekt · Identita a správa sportů, P1</span>
           </footer>
         </AuthProvider>
       </body>

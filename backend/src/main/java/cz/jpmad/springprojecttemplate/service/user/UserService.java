@@ -32,8 +32,12 @@ public class UserService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(final String username) throws UsernameNotFoundException {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        if (!user.isEnabled() || user.getAccountType() != cz.jpmad.springprojecttemplate.model.user.enums.AccountType.STANDARD) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Bad credentials");
+        }
+        return user;
     }
 
     /**
@@ -53,7 +57,7 @@ public class UserService implements UserDetailsService {
         user.setRole(Role.USER);
 
         final User saved = userRepository.save(user);
-        log.info("Registered new user: {}", saved.getUsername());
+        log.info("Registered account {}", saved.getId());
         return saved;
     }
 

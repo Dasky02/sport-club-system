@@ -1,7 +1,8 @@
-import type { LoginRequest, UserResponse } from "../api/types";
+import type { AccountContext, LoginRequest, UserResponse } from "../api/types";
 
 export interface AuthState {
   user: UserResponse | null;
+  context: AccountContext | null;
   loading: boolean;
   initialized: boolean;
   /** Výpadek API při ověřování session se liší od anonymního stavu (401). */

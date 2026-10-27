@@ -1,8 +1,10 @@
 # Informační systém pro správu sportovního klubu
 
-Samostatný týmový ročníkový projekt `sport-club-system`. **Etapa 1 je funkční technický skeleton, nikoli dokončená klubová aplikace.** Cílový rozsah odpovídá `zadani_sportovni_klub_v2.odt`; finální akceptace zahrnuje fotbal i basketbal bez změny kódu.
+Samostatný týmový ročníkový projekt `sport-club-system`. **E0 a pracovní balíček P1 tvoří technický základ a první část E1; E1 ani celá klubová aplikace nejsou dokončené.** Cílový rozsah odpovídá `zadani_sportovni_klub_v2.odt`; finální akceptace zahrnuje fotbal i basketbal v jedné aplikaci bez změny kódu.
 
-Implementovaný základ: Spring REST API, UUID účty a BCrypt hesla, veřejná registrace pouze jako `USER`, JSON přihlášení přes `JSESSIONID`, CSRF, obnovení session a logout, informační API s verzí z JAR, Flyway migrace `users`, Next.js úvod/registrace/přihlášení/dashboard, responzivní rozhraní, unit a integrační testy, Docker a CI. V této etapě neexistují obrazovky ani API pro týmy, hráčské profily, události, výsledky, statistiky, příspěvky, komunikaci nebo notifikace. Tyto funkce jsou konkrétně navržené v dokumentaci a čekají na další etapy.
+Základ zachovává Spring REST API, UUID účty a BCrypt, session `JSESSIONID`, CSRF, info API s verzí z JAR, samostatný Next.js frontend, Docker a CI. P1 přidává Flyway V2, doplnění vlastní osoby, aktuální autorizační kontext, bezpečné jednorázové převzetí správy a administrátorský seznam, založení a úpravu sportů. Veřejná registrace vytváří `USER`/`STANDARD` bez klubových práv; neúplný účet nejdříve dokončí osobní údaje.
+
+Týmy, hráčské profily, trenérská přiřazení, rodičovské vazby a aktivace CHILD, události, výsledky, statistiky, příspěvky, komunikace a notifikace zůstávají **plánované**. P1 neposkytuje obecnou správu cizích osob, účtů ani rolí. Rozsah implementace popisuje [API kontrakt](docs/api-contract.md); skutečně provedené kontroly a jejich omezení uvádí [ověření](docs/verification.md).
 
 ## Požadavky
 
@@ -25,7 +27,7 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env.local
 ```
 
-V `.env` nahraďte vzor `POSTGRES_PASSWORD` vlastním lokálním heslem. Tento postup načítá env soubor i shellem: pro heslo použijte například náhodnou hex hodnotu nebo jej uzavřete do jednoduchých uvozovek. Ostatní výchozí hodnoty jsou připravené pro localhost. Soubor frontend `.env.local` obsahuje `NEXT_PUBLIC_API_URL=http://localhost:8080/api`; nikdy sem nepatří databázové heslo nebo hostname `backend`.
+V `.env` nahraďte vzor `POSTGRES_PASSWORD` vlastním lokálním heslem. Tento postup načítá env soubor i shellem: pro heslo použijte například náhodnou hex hodnotu nebo jej uzavřete do jednoduchých uvozovek. Pro převzetí nové instalace nastavte vlastní náhodný soukromý `CLUB_SETUP_TOKEN`; v příkladu je prázdný a bez něj je setup vypnutý. Nemá výchozí heslo ani známý testovací token. Ostatní výchozí hodnoty jsou připravené pro localhost. Soubor frontend `.env.local` obsahuje `NEXT_PUBLIC_API_URL=http://localhost:8080/api`; databázové heslo ani setup token nikdy nepatří do `NEXT_PUBLIC_*`, URL či frontendu.
 
 ```sh
 docker compose -f docker-compose.dev.yml up -d --wait
@@ -41,7 +43,7 @@ cd backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-Java musí být verze 17 (`java -version`; při více instalacích nastavte `JAVA_HOME`). Na macOS např. `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`. Dev profil nepřidává žádné výchozí účty. Zaregistrujte se přes UI; přidělování klubových rolí bude administrátorská funkce v další etapě.
+Java musí být verze 17 (`java -version`; při více instalacích nastavte `JAVA_HOME`). Na macOS např. `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`. Dev profil nepřidává žádné výchozí účty. Registraci, doplnění osoby a bezpečný setup projděte přes skutečné UI níže; obecné administrátorské přidělování rolí zatím není implementované.
 
 Frontend ve druhém terminálu:
 
@@ -53,6 +55,16 @@ npm run dev
 ```
 
 Otevřete [frontend](http://localhost:3000). [Verze API](http://localhost:8080/api/info/version), [health](http://localhost:8080/api/actuator/health) a [OpenAPI](http://localhost:8080/api/v3/api-docs) ověřují skutečný běžící backend. API prefix `/api` se přidává právě jednou. Databázové změny provádí Flyway; Hibernate pouze validuje schéma.
+
+## První průchod P1
+
+1. Zaregistrujte se a přihlaste. Registrace sama nepřihlašuje ani nepřiděluje ADMIN.
+2. Na `/profile` doplňte skutečné jméno a příjmení, případně datum narození a kontakty. PENDING účet nemá klubová oprávnění. Onboarding vytváří jen vlastní osobu; nepřipojuje cizí existující profil podle jména či ID.
+3. Pro novou instalaci otevřete `/setup` a použijte soukromý instalační token nastavený v backendu. Dokončený STANDARD účet získá ADMIN pouze při prvním platném převzetí. Prázdný token setup nepovolí a dokončený setup nelze opakovat.
+4. Jako ADMIN otevřete `/admin/sports`, založte například fotbal a basketbal a upravte jejich název či aktivní stav. Kód sportu je stabilní a sport se nemaže. Běžný USER tuto správu nemá.
+5. Dashboard a navigace používají skutečný `/me/context`. P1 má pouze správní schopnosti `MANAGE_CLUB` a `MANAGE_SPORTS`; týmy, finance ani odvozené trenérské či rodičovské schopnosti zatím neexistují.
+
+Při upgradu původní databáze se V1 nepřepisuje: V2 zachová UUID, BCrypt hashe a časy. ADMIN zůstává ADMIN, staré COACH/PLAYER/PARENT se převádějí na USER bez vymyšlených vztahů. Účty mohou mít dočasně `person_id = NULL`, po přihlášení dokončí vlastní onboarding. Existující ADMIN při migraci uzavře prvotní setup a po doplnění osoby může spravovat sporty. CHILD je v P1 zakázaný pro přístup a není dostupný jeho vznik ani aktivace. Podrobný postup a plán čtyř klubových rolí obsahuje [příručka](docs/user-guide.md).
 
 ## Celá sestava v Dockeru
 
@@ -92,6 +104,7 @@ Na macOS může Testcontainers potřebovat `export DOCKER_HOST=unix://$HOME/.doc
 - [Architektura a bezpečnost skeletonu](docs/architecture.md), [výchozí problémy šablony](docs/baseline.md).
 - [Požadavky a akceptace](docs/requirements.md), [doménový model](docs/domain-model.md), [návrh databáze](docs/database.md), [DBML](docs/sport-club.dbml) a [ER diagram](docs/ERD%20diagram.svg).
 - [Oprávnění](docs/authorization.md), [etapy implementace](docs/roadmap.md), [uživatelská příručka](docs/user-guide.md).
+- [Pracovní plán celé implementace](docs/implementation-plan.md), [implementované a plánované API](docs/api-contract.md), [pokyny pro navazující práci](AGENTS.md).
 - [Nasazení](docs/deployment.md), [výsledky ověření](docs/verification.md), [CONTRIBUTING](CONTRIBUTING.md).
 
 Doporučený postup: krátké větve, PR, alespoň jedno schválení kolegou a povinné úspěšné CI před merge do `main`. Nastavení těchto GitHub pravidel je samostatný týmový krok. Release je ruční workflow nad `main`, po testech a s verzí z `VERSION`; běžné PR kontroly nic nepublikují. Aktualizujte verzi přes `python3 scripts/bump_version.py X.Y.Z` a release notes v backend resources.
