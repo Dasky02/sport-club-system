@@ -31,6 +31,7 @@ public class FreshAccountFilter extends OncePerRequestFilter {
             User current;
             try {
                 current = accounts.requireUsable(previous.getId());
+                if(current.getAuthRevision()!=previous.getAuthRevision()) throw new BadCredentialsException("Authentication required");
             } catch (BadCredentialsException denied) {
                 var session = request.getSession(false);
                 if (session != null) session.invalidate();
@@ -38,6 +39,10 @@ public class FreshAccountFilter extends OncePerRequestFilter {
                 if (isPublic(request)) { chain.doFilter(request, response); return; }
                 writeError(response, 401, "UNAUTHORIZED", "Authentication required");
                 return;
+            }
+            if(current.getAccountType()==cz.jpmad.springprojecttemplate.model.user.enums.AccountType.CHILD &&
+                    !cz.jpmad.springprojecttemplate.service.access.ChildAccessPolicy.allowedRequest(request.getMethod(),request.getServletPath())) {
+                writeError(response,403,"FORBIDDEN","Access denied"); return;
             }
             var refreshed = UsernamePasswordAuthenticationToken.authenticated(current, null, current.getAuthorities());
             refreshed.setDetails(auth.getDetails());

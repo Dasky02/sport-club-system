@@ -42,7 +42,9 @@ test("osoba, jednorázový ADMIN setup a dva sporty přes skutečné API", async
   await page.goto("/profile");
   await page.getByLabel("Jméno", { exact: true }).fill("Testovací");
   await page.getByLabel("Příjmení", { exact: true }).fill("Správce");
+  const onboardingDone = page.waitForResponse(response => response.url().endsWith("/me/person") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Uložit osobní údaje" }).click();
+  expect((await onboardingDone).status()).toBe(201);
   await expect.poll(async () => (await (await page.request.get(apiUrl + "/auth/me")).json()).profileState)
     .toBe("COMPLETE");
   expect((await page.request.get(apiUrl + "/sports")).status()).toBe(403);
@@ -53,7 +55,9 @@ test("osoba, jednorázový ADMIN setup a dva sporty přes skutečné API", async
   await expect(page.getByRole("alert")).toBeVisible();
   expect(await (await page.request.get(apiUrl + "/auth/me")).json()).toMatchObject({ role: "USER" });
   await page.getByLabel("Instalační token").fill(setupToken!);
+  const setupDone = page.waitForResponse(response => response.url().endsWith("/club/setup") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Převzít správu klubu" }).click();
+  expect((await setupDone).status()).toBe(200);
   await expect.poll(async () => (await (await page.request.get(apiUrl + "/auth/me")).json()).role)
     .toBe("ADMIN");
   // Drop the token from the live page before any screenshot can be retained.

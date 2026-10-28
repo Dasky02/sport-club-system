@@ -47,7 +47,7 @@ class TeamsAndMembershipsTests {
         create(a,"/team-seasons/"+f.tsA()+"/player-memberships",member("playerId",player,"2026-09-01",null));
         create(a,"/team-seasons/"+f.tsB()+"/player-memberships",member("playerId",player,"2026-09-01",null));
         var context=json(a.get("/me/context")); assertThat(context.path("teamContexts").size()).isEqualTo(2);
-        assertThat(context.path("ownPlayerId").isNull()).isTrue(); assertThat(context.path("capabilities").size()).isEqualTo(6);
+        assertThat(context.path("ownPlayerId").isNull()).isTrue(); assertThat(context.path("capabilities").size()).isEqualTo(8);
         var roster=a.get("/team-seasons/"+f.tsA()+"/players"); assertThat(json(roster).path("totalElements").asText()).isEqualTo("1");
         assertThat(roster.body()).doesNotContain("personId","birthDate","email","phone","finance");
         assertThat(json(a.get("/players/"+player+"/memberships")).path("totalElements").asText()).isEqualTo("2");

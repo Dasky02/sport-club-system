@@ -31,3 +31,8 @@ export function intervalError(from: string, to: string | null, start: string, en
   if (to && (to <= from || to > end)) return "Konec musí být po začátku, nejpozději na konci sezóny.";
   return null;
 }
+
+/** Auditní odůvodnění se neposílá v URL ani nevypisuje z odpovědí serveru. */
+export function ReasonField({ label, disabled = false }: { label: string; disabled?: boolean }) {
+  return <FormField name="reason" label={label} minLength={1} maxLength={500} required disabled={disabled} autoComplete="off" hint="Stručně odůvodněte ověřenou změnu. Nevkládejte hesla, tajné ani osobní údaje. Nejvýše 500 znaků." />;
+}

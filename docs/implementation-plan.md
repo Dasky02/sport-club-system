@@ -1,8 +1,8 @@
 # Příprava úplné implementace
 
-Historický podklad: dokumentační příprava 27. 10. 2026 nad `main` `c0b52d6` vycházela z E0 s jedinou V1 users. **P1 je v PR #23; větev `feat/teams-and-memberships` přidává P2 nad P1.** V1–V3 mají 12 tabulek: identitu/setup/sporty a týmový základ se skutečným UI. Dalších 26 tabulek a P3–P9 zůstává plánovaných; E1 jako celek není dokončená. Tento dokument není záznam úspěšných testů; výsledky běhů eviduje výhradně [ověření](verification.md).
+Historický podklad: příprava nad main c0b52d6 vycházela z E0 a V1 users. **P1 je sloučený přes PR #23; P2/P3 nyní dodávají členský a rodičovský základ na navazující větvi.** V1–V4 mají stále 12 tabulek: identitu/setup/sporty, týmový základ a funkční účty/rodiče/CHILD. Dalších 26 tabulek a P4–P9 zůstává plánovaných; úplná akceptace E1 ani projekt nejsou uzavřené. Tento dokument není záznam úspěšných testů; výsledky eviduje pouze [ověření](verification.md).
 
-P2 přidává správu osob/hráčů/sezón/týmů/členství, scoped soupisky a historii. Správa jiných účtů, person-link, změny rolí a rodiče/CHILD patří P3. PENDING má pouze povolené auth/onboarding/context operace a CHILD je blokovaný. ADMIN má šest skutečných správních capabilities; READ_TEAM vzniká jen z aktuálního členství. Všechny zbývající R/T/U zůstávají povinné.
+P3 poskytuje správu účtů na ověřené osoby, person-link, odůvodněné změny role/typu/přístupu a CHILD aktivaci, guardian grant/revoke a Moje děti. PENDING má jen povolené auth/onboarding/context operace. CHILD má vlastní osobu ke čtení a povolené vlastní sportovní čtení; finanční/notifikační cesty odmítá předběžný allowlist. ADMIN má osm skutečných správních capabilities; READ_TEAM plyne z dnešních vlastních/trenérských/dětských vazeb, READ_CHILD jen ze schváleného vztahu. Všechny zbývající R/T/U zůstávají povinné.
 
 ## Podklady a jejich účel
 
@@ -40,29 +40,31 @@ V1 zná pouze username, BCrypt hash, roli a časy. Neobsahuje skutečné jméno,
 4. **Dosavadní správce:** existuje-li již oprávněný ADMIN, V2 označí setup migrovaného klubu za dokončený a zapíše audit. Pro `setup_completed_by` použije nejdříve vytvořeného existujícího ADMIN, při shodě UUID. Nevytváří tím nové oprávnění. Instalační token nesmí převzít už spravovanou instalaci. Tento ADMIN si také nejprve dokončí osobu.
 5. **Nová instalace bez ADMIN:** první správce vznikne až přihlášenému povolenému STANDARD účtu s dokončenou osobou po jednorázovém setupu se soukromým tokenem, pod zámkem klubu a s auditem. První veřejná registrace žádná správní práva nedostane.
 6. **V3 a skutečné vazby:** ADMIN explicitně založí/ověří hráčské profily, členství a trenérská přiřazení; rodiče až v P3. Z role PLAYER se automaticky nevytváří CHILD; z COACH nelze odhadnout tým a z PARENT dítě.
-7. **Pozdější zpřísnění:** `users.person_id NOT NULL` přidat samostatnou novou migrací až po ověřeném doplnění všech účtů. Nepřibalovat ji do prvního releasu, kde by staré neúplné účty znemožnily start. Po přechodu odstranit dočasnou migrační evidenci novou migrací. DBML popisuje konečný stav; tato dočasná výjimka je migrační postup.
+7. **Implementovaná V4/P3:** přidat auth_revision a ochranné triggery bez nových tabulek; při upgradu zakázat všechny starší CHILD účty bez vymyšleného backfillu. Správce ověří vlastní hráčský profil a aktivního schváleného STANDARD rodiče před samostatnou aktivací. Ztráta posledního rodiče nebo jeho zákaz dítě zakáže a odvolá staré sessions i po reaktivaci; regrant/povolení rodiče dítě samo neaktivuje. Person-link a změny role/typu/přístupu mají důvod 1–500 znaků, nesmějí odebrat posledního povoleného dokončeného STANDARD ADMIN. Při vlastní P1 onboarding/setup operaci se zachová pouze očekávaná aktuální session, nikoli souběžně odvolaná revize.
+8. **Pozdější zpřísnění:** `users.person_id NOT NULL` přidat samostatnou novou migrací až po ověřeném doplnění všech účtů. Nepřibalovat ji do prvního releasu, kde by staré neúplné účty znemožnily start. Po přechodu odstranit dočasnou migrační evidenci novou migrací. DBML popisuje konečný stav; tato dočasná výjimka je migrační postup.
 
-Účet pro již evidovanou osobu vytváří ADMIN přímo na ověřenou osobu, která ještě účet nemá. První heslo se zadá přes HTTPS, uloží pouze BCryptem a oprávněné osobě předá soukromě mimo veřejný projekt; aplikace jej nevrací ani neloguje. Pro CHILD jej předá ověřenému rodiči. CHILD vzniká zakázaný a aktivace samostatně ověří všechny podmínky. Tato varianta nevyžaduje nepřipravený systém pozvánek; pokud jej tým později zvolí, musí doplnit model hashovaných expiračních tokenů a jeho testy.
+Účet pro již evidovanou osobu vytváří ADMIN přímo na ověřenou osobu, která ještě účet nemá. První heslo se zadá přes HTTPS, uloží pouze BCryptem a oprávněné osobě předá soukromě mimo veřejný projekt; aplikace jej nevrací ani neloguje. Pro CHILD jej předá ověřenému rodiči. CHILD vzniká zakázaný a aktivace samostatně ověří všechny podmínky. Tato varianta je implementovaná v P3 a nevyžaduje nepřipravený systém pozvánek; pokud jej tým později zvolí, musí doplnit model hashovaných expiračních tokenů a jeho testy.
 
 ## Pořadí databázových změn
 
-**V1–V3 jsou implementované; V4–V8 níže jsou pouze návrh pořadí, jejich SQL soubory ještě neexistují.** Číslo migrace se definitivně přidělí při práci na konkrétní změně. Aplikovaná migrace se nikdy nepřepisuje; nový skutečný DDL krok dostane další verzi. Jeden vlastník změny koordinuje migrační soubory před sloučením paralelních větví.
+**V1–V4 jsou implementované; V5–V9 níže jsou pouze návrh pořadí, jejich SQL soubory ještě neexistují.** Číslo migrace se definitivně přidělí při práci na konkrétní změně. Aplikovaná migrace se nikdy nepřepisuje; nový skutečný DDL krok dostane další verzi. Jeden vlastník změny koordinuje migrační soubory před sloučením paralelních větví.
 
 | Návrh | Přidávané tabulky / změny | Součet tabulek |
 | --- | --- | --- |
 | V1 — existuje | `users`; zachovat soubor a jeho checksum | 1 |
 | V2 — implementovaná identita a setup | `persons`, `club`, `audit_log`, `sports`; rozšíření a řízený převod `users` výše | 5 |
 | V3 — implementovaní členové a týmy | `seasons`, `teams`, `team_seasons`, `player_profiles`, `guardian_links`, `player_team_memberships`, `coach_team_memberships` | 12 |
-| V4 — soutěžní konfigurace | `competitions`, `match_formats`, `competition_seasons`, `competition_point_rules`, `competition_forfeit_rules`, `competition_ranking_criteria`, `competition_entries` | 19 |
-| V5 — události, výsledkový základ a schránka | `events`, `event_teams`, `event_participants`, `matches`, `match_result_revisions`, `match_periods`, `match_result_players`, `fee_assessments`, `fee_payments`, `notifications`, `notification_deliveries` | 30 |
-| V6 — statistiky | `statistic_definitions`, `statistic_definition_versions`, `player_match_statistics` | 33 |
-| V7 — úplné řešení shod | `competition_tie_decisions`, `competition_tie_decision_entries` | 35 |
-| V8 — komunikace | `conversations`, `conversation_participants`, `messages` | 38 |
+| V4 — implementované účty a rodiče | `users.auth_revision`, guardian/user guardy, zákaz neplatného CHILD; žádná nová tabulka | 12 |
+| V5 — soutěžní konfigurace | `competitions`, `match_formats`, `competition_seasons`, `competition_point_rules`, `competition_forfeit_rules`, `competition_ranking_criteria`, `competition_entries` | 19 |
+| V6 — události, výsledkový základ a schránka | `events`, `event_teams`, `event_participants`, `matches`, `match_result_revisions`, `match_periods`, `match_result_players`, `fee_assessments`, `fee_payments`, `notifications`, `notification_deliveries` | 30 |
+| V7 — statistiky | `statistic_definitions`, `statistic_definition_versions`, `player_match_statistics` | 33 |
+| V8 — úplné řešení shod | `competition_tie_decisions`, `competition_tie_decision_entries` | 35 |
+| V9 — komunikace | `conversations`, `conversation_participants`, `messages` | 38 |
 
 Důležité závislosti:
 
 - Formáty a soutěžní ročníky musí existovat před soutěžním zápasem. Z E3 se proto malý balíček konfigurace posune **před dokončení zápasové části E2**. Tréninky a jiné události lze rozpracovat dříve; E2 se neuzavře bez MATCH scénáře.
-- Ve V5 vytvořit předpisy a platby **před** notifikacemi: `notifications.fee_assessment_id` pak od počátku má skutečný FK. Jsou to pouze databázové základy; finanční service/API/UI a splatnostní scheduler vzniknou až v E4. Samotné prázdné tabulky nejsou splněním R07/R08.
+- Ve V6 vytvořit předpisy a platby **před** notifikacemi: `notifications.fee_assessment_id` pak od počátku má skutečný FK. Jsou to pouze databázové základy; finanční service/API/UI a splatnostní scheduler vzniknou až v E4. Samotné prázdné tabulky nejsou splněním R07/R08.
 - Nejprve vytvořit `matches` a `match_result_revisions`, teprve pak cyklický FK aktivní revize. Nový zápas má aktivní revizi NULL; revize vznikne a po validaci se aktivuje v transakci. Obě `supersedes_*` vazby musejí odmítnout vlastní odkaz i řetězec s cyklem.
 - Společný zámek klubu se bere před kontrolou oprávnění a zápisem podle [databáze](database.md). Optimistická verze navíc brání přepsání rozepsaným formulářem; nenahrazuje transakční zámek ani historickou revizi.
 - Povinné jmenné omezení, typy, indexy a FK se ověří na skutečném PostgreSQL. DBML není automatická náhrada implementace service invariantů.
@@ -71,30 +73,30 @@ Upgrade testy pokryjí čistou databázi i V1 fixture se starými účty a pozd�
 
 ## Pracovní balíčky a akceptace
 
-P0 má dokumentační podklady; P1/P2 mají implementovaný rozsah níže. Provedené kontroly uvádí `verification.md`, nikoli tento plán. P3–P9 jsou **plánované** a P1/P2 neuzavírají celou E1. Backend a frontend balíčku se dodávají nad stejným skutečným kontraktem. Prázdný controller, mock v produkční stránce ani odkaz v menu nejsou hotová funkce.
+P0 má dokumentační podklady; P1–P3 mají implementovaný rozsah níže. Provedené kontroly uvádí `verification.md`, nikoli tento plán. P4–P9 jsou **plánované** a P1–P3 neuzavírají úplnou akceptaci E1 ani celý projekt. Backend a frontend balíčku se dodávají nad stejným skutečným kontraktem. Prázdný controller, mock v produkční stránce ani odkaz v menu nejsou hotová funkce.
 
 | Balíček | Závisí na | Konkrétní společný výstup | Rozhodující důkaz |
 | --- | --- | --- | --- |
 | P0 — společný základ | E0 | Tento plán, API kontrakt, migrační scénář; při začátku kódu obnovit technický baseline a připravit testovací identity/čas | Zachovaný auth tok; existující testy; žádné tajné údaje ani prod seed účty |
 | P1 — implementovaná identita a bezpečný setup | P0 | V2, onboarding osoby, čerstvé autorizační kontroly, audit, setup a admin správa sportů; nový účet/context DTO; obecné frontend chyby a CSRF mutace | Upgrade všech starých rolí bez ztráty účtů; A01, A17, A19, A27; dva souběžné setupy nejvýše jeden úspěch |
 | P2 — implementované týmy a soupiska | P1 | V3 základ, sezóny, oba sporty, vlastní/externí týmy, hráči bez účtů, intervalová členství, vlastní trenérské přiřazení; admin a scoped UI | R01/R12/R16, T04/T08, U11; jediný ADMIN/trenér vede fotbal i basketbal bez dalších účtů; přestup zachová historii |
-| P3 — rodič a CHILD | P2 | Správa schválených vazeb, účet na existující osobu, omezený dětský účet, Moje děti, odvolání session; finance deny politika před finančními endpointy | A04, A08, A16, A20, A23–A26; dvě děti a dva rodiče; ztráta jedné versus poslední platné vazby |
-| P4 — základ soutěží | P2 | V4; admin formuláře formátů, ročníků, přihlášek, bodování, kontumací a kritérií pořadí | Fotbal i basketbal z UI bez změny kódu; odmítnutý cizí sport, překryv pravidel a neúplná konfigurace |
-| P5 — kalendář, účast a notifikace | P3, pro MATCH také P4 | V5; TRAINING/MATCH/OTHER, publikace/změny/rušení, dostupnost, nominace, docházka, nastoupení a vlastní schránka | R03–R06/R10; A03, A06–A09, A12–A13; nominace není přítomnost; změna a doručení ve stejné transakci, opakování bez duplicity |
-| P6 — výsledky, statistiky a pořadí | P4–P5 | V6/V7; návrh/potvrzení/oprava/anulování s historií, dynamické definice a hodnoty, serverový výpočet tabulek a agregací | R13–R16, T05; A15/A18; oba sportovní fixtures, H2H a restart, historické názvy a hodnoty |
-| P7 — finance a reminders | P3+P5 | Service/API/UI nad fee tabulkami V5; předpis, několik úhrad, storno, vlastní/rodičovské čtení, výzvy a audit | R07–R09; A05, A09–A10, A14, A21–A22; 1000→400→600→storno, souběh a idempotence, CHILD bez obsahu i počtů |
-| P8 — komunikace | P3; integračně P5 | V8; seznam konverzací, aktivní účastníci, odeslání a stránkování zpráv, oprávnění při každém čtení/zápisu | R11, A11; ADMIN bez účasti odmítnut, zprávy až od připojení, zánik poslední vazby ihned zakáže přístup |
+| P3 — implementované účty, rodič a CHILD | P2 | V4 auth_revision/guardy; správa schválených vazeb, účet na existující osobu, person-link, role/typ/přístup, omezený dětský účet, Moje děti, odvolání sessions i po reaktivaci, ochrana posledního ADMIN; finance deny politika před finančními endpointy | A04, A08, A16, A20, A23–A26; dvě děti a dva rodiče; ztráta jedné versus poslední platné vazby |
+| P4 — základ soutěží | P2 | Navržená V5; admin formuláře formátů, ročníků, přihlášek, bodování, kontumací a kritérií pořadí | Fotbal i basketbal z UI bez změny kódu; odmítnutý cizí sport, překryv pravidel a neúplná konfigurace |
+| P5 — kalendář, účast a notifikace | P3, pro MATCH také P4 | Navržená V6; TRAINING/MATCH/OTHER, publikace/změny/rušení, dostupnost, nominace, docházka, nastoupení a vlastní schránka | R03–R06/R10; A03, A06–A09, A12–A13; nominace není přítomnost; změna a doručení ve stejné transakci, opakování bez duplicity |
+| P6 — výsledky, statistiky a pořadí | P4–P5 | Navržené V7/V8; návrh/potvrzení/oprava/anulování s historií, dynamické definice a hodnoty, serverový výpočet tabulek a agregací | R13–R16, T05; A15/A18; oba sportovní fixtures, H2H a restart, historické názvy a hodnoty |
+| P7 — finance a reminders | P3+P5 | Service/API/UI nad fee tabulkami navržené V6; předpis, několik úhrad, storno, vlastní/rodičovské čtení, výzvy a audit | R07–R09; A05, A09–A10, A14, A21–A22; 1000→400→600→storno, souběh a idempotence, CHILD bez obsahu i počtů |
+| P8 — komunikace | P3; integračně P5 | Navržená V9; seznam konverzací, aktivní účastníci, odeslání a stránkování zpráv, oprávnění při každém čtení/zápisu | R11, A11; ADMIN bez účasti odmítnut, zprávy až od připojení, zánik poslední vazby ihned zakáže přístup |
 | P9 — kompletní předání | P6–P8 | E6: celá matice, skutečná příručka čtyř klubových kontextů, CHILD i solo provoz, mobil, HTTPS a obnova | Všechny R/T/U mají konkrétní důkaz; reálné TLS/cookie ověření a obnovení zálohy do odděleného prostředí |
 
 P4 lze připravovat po P2 souběžně s P3. Po P5 mohou běžet P6, P7 a P8 souběžně, pokud mají samostatné soubory a dohodnuté kontrakty. Schéma a společnou autorizaci koordinuje jeden vlastník; neslučují se soupeřící kopie identity nebo finančních pravidel. Výsledná integrace musí znovu projít společné scénáře.
 
 První malá dodávka je **P1: přihlášení → doplnění osoby → bezpečný ADMIN setup → založení a zobrazení sportu**. P2 již přidává první použitelnou týmovou dodávku: sezónu, dva sporty/týmy, vlastní trenérské přiřazení a hráče bez účtů. První provozní průchod přidá publikovaný trénink a docházku z P5. Ani jeden z těchto mezikroků se neoznačuje za dokončený projekt.
 
-## Hranice implementovaného P1 a navazující práce
+## Hranice implementovaných P1–P3 a navazující práce
 
-Backend P1 zachovává `cz.jpmad.springprojecttemplate`, vrstvy api/service/repository/model, constructor injection, record DTO, UserService/BCrypt a JSON session. Centrální kontrola čte aktuální účet z DB i pro `/auth/me`; starý session snapshot neobnoví odebranou roli, enabled nebo povolení CHILD. Vlastní onboarding, setup a změny sportu používají klubový zámek a audit. P2 přidává scoped týmové dotazy; rodičovské policy vzniknou s P3.
+Backend P1 zachovává `cz.jpmad.springprojecttemplate`, vrstvy api/service/repository/model, constructor injection, record DTO, UserService/BCrypt a JSON session. Centrální kontrola čte aktuální účet z DB i pro `/auth/me`; starý session snapshot neobnoví odebranou roli, enabled nebo povolení CHILD. Vlastní onboarding, setup a změny sportu používají klubový zámek a audit. P2 přidává scoped týmové dotazy a P3 rodičovské policy, revize sessions, správu účtů a omezený CHILD login.
 
-Frontend P1 zachovává Next App Router, český shell, Axios credentials/CSRF a ochranu před opožděnou auth odpovědí. Typovaný transport a obecné chyby podporují onboarding, setup a sporty; formuláře nezaměňují libovolnou validaci za chybu přihlášení ani každý 409 za obsazené username. P2 UI přidává skutečné týmové funkce a historii nad rozšířeným `/me/context`; rodičovské ani finanční funkce nenabízí. Backend každou operaci ověřuje samostatně.
+Frontend P1 zachovává Next App Router, český shell, Axios credentials/CSRF a ochranu před opožděnou auth odpovědí. Typovaný transport a obecné chyby podporují onboarding, setup a sporty; formuláře nezaměňují libovolnou validaci za chybu přihlášení ani každý 409 za obsazené username. P2 UI přidává týmové funkce a historii, P3 account a rodičovské formuláře i Moje děti nad aktuálním `/me/context`. CHILD má jen vlastní povolené sportovní stránky; finanční funkce zatím neexistují. Backend každou operaci ověřuje samostatně.
 
 Navržená struktura frontendu: `src/app/(club)/layout.tsx` a `src/features/{members,teams,events,competitions,statistics,finance,notifications,communication}`. Vznikají až s příslušnými funkcemi, ne jako prázdné soubory. Po odhlášení/401 se vyčistí citlivý stav; výpadek sítě se nevydává za logout. Seznamy mají načítání/prázdno/chybu, formuláře validaci a 409 se zachováním rozepsaných hodnot. Dítě vůbec nespouští finanční dotazy.
 

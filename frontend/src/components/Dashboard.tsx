@@ -32,6 +32,7 @@ function DashboardContent() {
           {user.profileState === "PENDING" ? <><h2>Doplňte osobní údaje</h2><p>Účet zatím není propojený s osobou. Po dokončení vlastních údajů můžete pokračovat k dostupným klubovým funkcím.</p><Link className="button" href="/profile">Doplnit osobní údaje</Link></>
             : context?.capabilities.includes("MANAGE_TEAMS") ? <><h2>Správa vašeho klubu</h2><p>Připravte sezóny, týmy a hráčské profily. Trenéry včetně vlastního účtu přiřadíte k týmům v sezóně.</p><div className="actions"><Link className="button" href="/admin">Administrace klubu</Link><Link className="button button-secondary" href="/teams">Týmy a soupisky</Link></div></>
               : context?.capabilities.includes("MANAGE_SPORTS") ? <><h2>Sporty vašeho klubu</h2><p>Jako administrátor můžete přidávat, přejmenovávat a deaktivovat sporty. Kód sportu zůstává stabilní.</p><Link className="button" href="/admin/sports">Správa sportů</Link></>
+              : user.accountType === "STANDARD" && context?.children.length ? <><h2>Vaše děti</h2><p>Prohlédněte si schválené hráčské profily svých dětí a jejich členství.</p><Link className="button" href="/my-children">Moje děti</Link></>
               : context?.teamContexts.length ? <><h2>Vaše týmy</h2><p>Zobrazte aktuálně povolené týmové soupisky.</p><Link className="button" href="/teams">Týmy a soupisky</Link></>
                 : context?.ownPlayerId ? <><h2>Váš hráčský profil</h2><p>Prohlédněte si vlastní základní profil a historii členství.</p><Link className="button" href={`/players/${context.ownPlayerId}`}>Profil a členství</Link></>
               : user.accountType === "STANDARD" ? <><h2>Váš profil je připravený</h2><p>Pokud jste provozovatel nové instalace, ověřte stav jednorázového převzetí správy. Běžný účet správní oprávnění nezískává automaticky.</p><Link className="button" href="/setup">Nastavení klubu</Link></>
@@ -39,7 +40,7 @@ function DashboardContent() {
         </article>
       </div>
       {user.profileState === "COMPLETE" && context?.ownPlayerId && <div className="actions"><Link className="text-button" href={`/players/${context.ownPlayerId}`}>Můj hráčský profil</Link></div>}
-      <p className="subtle dashboard-scope">Rodičovské vazby, dětské přihlášení, sportovní události, výsledky, příspěvky a komunikace jsou součástí dalších pracovních balíčků.</p>
+      <p className="subtle dashboard-scope">Sportovní události, výsledky, příspěvky a komunikace jsou součástí dalších pracovních balíčků.</p>
     </section>
   );
 }

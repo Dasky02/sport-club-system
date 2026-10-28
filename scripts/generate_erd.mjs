@@ -39,7 +39,7 @@ const graph = [
   'graph [rankdir=LR, bgcolor="white", pad=0.4, nodesep=0.4, ranksep=1.0, splines=polyline, fontname="Helvetica", fontsize=16, compound=true];',
   'node [shape=plain, fontname="Helvetica", fontsize=12];',
   'edge [color="#8895a8", fontname="Helvetica", fontsize=10, arrowsize=0.65];',
-  'label="Sport club system — logický návrh, dosud neimplementováno\\nPK = primární klíč; R = sloupec vztahu; ! = povinné; vějíř = více záznamů. Podmínky platnosti: database.md.";',
+  'label="Sport club system — cílový model (implementovaný rozsah: database.md)\\nPK = primární klíč; R = sloupec vztahu; ! = povinné; vějíř = více záznamů. Podmínky platnosti: database.md.";',
   'labelloc=t;',
 ];
 const rendered = new Set();

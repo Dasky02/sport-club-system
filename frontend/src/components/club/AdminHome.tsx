@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import type { Capability } from "@/api/types";
 
 const sections: { href: string; name: string; description: string; capability: Capability }[] = [
+  { href: "/admin/accounts", name: "Přístupové účty", description: "Účty na ověřené osoby, propojení a aktivace dětského přístupu.", capability: "MANAGE_ACCOUNTS" },
   { href: "/admin/sports", name: "Sporty", description: "Sporty v databázi, přejmenování a deaktivace.", capability: "MANAGE_SPORTS" },
   { href: "/admin/seasons", name: "Sezóny", description: "Datumové hranice, otevřené sezóny a archivace.", capability: "MANAGE_SEASONS" },
   { href: "/admin/teams", name: "Týmy a členství", description: "Klubové týmy i soupeři, sezónní názvy, hráči a trenéři.", capability: "MANAGE_TEAMS" },

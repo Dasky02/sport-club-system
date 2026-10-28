@@ -23,7 +23,7 @@ export interface UserResponse {
   createdAt: string;
 }
 
-export type Capability = "MANAGE_CLUB" | "MANAGE_SPORTS" | "MANAGE_SEASONS" | "MANAGE_TEAMS" | "MANAGE_PLAYERS" | "MANAGE_MEMBERSHIPS";
+export type Capability = "MANAGE_CLUB" | "MANAGE_SPORTS" | "MANAGE_SEASONS" | "MANAGE_TEAMS" | "MANAGE_PLAYERS" | "MANAGE_MEMBERSHIPS" | "MANAGE_ACCOUNTS" | "MANAGE_GUARDIANS";
 
 /** Jen skutečné aktuální kontexty; týmová oprávnění nejsou globální role. */
 export interface AccountContext {
@@ -31,7 +31,7 @@ export interface AccountContext {
   capabilities: Capability[];
   ownPlayerId: string | null;
   teamContexts: { teamSeasonId: string; capabilities: "READ_TEAM"[] }[];
-  children: never[];
+  children: { playerId: string; displayName: string; capabilities: "READ_CHILD"[] }[];
 }
 
 export interface PersonRequest {

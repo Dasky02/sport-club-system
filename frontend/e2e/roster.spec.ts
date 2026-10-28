@@ -36,11 +36,15 @@ test("jediný správce, dva sporty, offline hráči a zachovaná historie člens
   await page.goto("/profile");
   await page.getByLabel("Jméno", { exact: true }).fill("Testovací");
   await page.getByLabel("Příjmení", { exact: true }).fill("Trenér");
+  const onboardingDone = page.waitForResponse(response => response.url().endsWith("/me/person") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Uložit osobní údaje" }).click();
+  expect((await onboardingDone).status()).toBe(201);
   await expect.poll(async () => (await (await page.request.get(apiUrl + "/auth/me")).json()).profileState).toBe("COMPLETE");
   await page.goto("/setup");
   await page.getByLabel("Instalační token").fill(token!);
+  const setupDone = page.waitForResponse(response => response.url().endsWith("/club/setup") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Převzít správu klubu" }).click();
+  expect((await setupDone).status()).toBe(200);
   await expect.poll(async () => (await (await page.request.get(apiUrl + "/auth/me")).json()).role).toBe("ADMIN");
   await page.goto("/admin/sports");
   for (let index = 0; index < names.length; index++) {

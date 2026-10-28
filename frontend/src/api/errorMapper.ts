@@ -12,6 +12,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   SETUP_UNAVAILABLE: "Převzetí správy není nakonfigurované. Instalační token musí nastavit provozovatel.",
   OPTIMISTIC_LOCK_CONFLICT: "Záznam mezitím změnil jiný uživatel. Načtěte aktuální stav.",
   STATE_CONFLICT: "Akce není v aktuálním stavu povolena. Ověřte aktuální stav.",
+  CHILD_ACTIVATION_CONFLICT: "Dětský účet vyžaduje vlastní hráčský profil a schváleného rodiče s povoleným běžným účtem.",
+  LAST_ADMIN_REQUIRED: "Klub musí mít alespoň jednoho povoleného administrátora s dokončeným profilem.",
   MEMBERSHIP_OVERLAP: "Interval se překrývá s jiným členstvím stejného hráče nebo trenéra v tomto týmu.",
   CONFIGURATION_LOCKED: "Použité nebo archivované údaje již nelze tímto způsobem měnit.",
   VALIDATION_ERROR: "Zkontrolujte vyplněné údaje a označená pole.",

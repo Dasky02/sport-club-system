@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ClubController {
     private final ClubService clubs;
+    private final cz.jpmad.springprojecttemplate.service.user.SelfSessionRefresher sessions;
     @GetMapping("/setup-status") public SetupStatusResponse status(@AuthenticationPrincipal User user) { return clubs.status(user.getId()); }
-    @PostMapping("/setup") public UserResponse setup(@AuthenticationPrincipal User user, @Valid @RequestBody SetupRequest request) { return clubs.setup(user.getId(), request.token()); }
+    @PostMapping("/setup") public UserResponse setup(@AuthenticationPrincipal User user, @Valid @RequestBody SetupRequest request, jakarta.servlet.http.HttpServletRequest httpRequest, jakarta.servlet.http.HttpServletResponse httpResponse) {
+        var result=clubs.setup(user.getId(),request.token()); sessions.refresh(user.getId(),user.getAuthRevision(),httpRequest,httpResponse); return result;
+    }
 }

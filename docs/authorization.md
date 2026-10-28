@@ -1,12 +1,16 @@
 # Autentizace a návrh oprávnění
 
-**Stav E0 + P1/P2:** vlastní osoba, bezpečný setup, sporty, ADMIN osoby/hráči/sezóny/týmy/členství a scoped soupisky/historie jsou implementované. V1–V3 mají 12 tabulek. Správa jiných účtů/rolí, person-link, rodičovská oprávnění, CHILD, události, finance a komunikace jsou navazující návrh. Provedené testy jsou v [ověření](verification.md).
+**Stav E0 + P1–P3:** vedle identitního a týmového základu jsou implementované ADMIN účty/person-link/role/type/enabled/activate, guardian grant/revoke, Moje děti a omezený CHILD login se sportovním čtením. V1–V4 mají stále 12 tabulek, V4 přidává neveřejné auth_revision a guardy. Události, výsledky, finance, notifikace a komunikace jsou plánované. Provedené běhy jsou v [ověření](verification.md).
 
-PENDING má pouze povolený auth/onboarding rozsah a prázdný kontext. ADMIN s dokončenou osobou dostává MANAGE_CLUB, MANAGE_SPORTS, MANAGE_SEASONS, MANAGE_TEAMS, MANAGE_PLAYERS a MANAGE_MEMBERSHIPS. ADMIN nemusí být automaticky trenérem žádného týmu. ownPlayerId se odvodí ze stejné osoby, teamContexts obsahují pouze skutečně aktuální hráčská/trenérská členství s READ_TEAM. USER nemá globální správní schopnosti; children je zatím prázdné.
+PENDING má pouze povolený auth/onboarding rozsah a prázdný kontext. Dokončený STANDARD ADMIN má MANAGE_CLUB, MANAGE_SPORTS, MANAGE_SEASONS, MANAGE_TEAMS, MANAGE_PLAYERS, MANAGE_MEMBERSHIPS, MANAGE_ACCOUNTS a MANAGE_GUARDIANS. ADMIN není automaticky trenér ani rodič všech dětí. USER/CHILD nemají globální správní schopnosti. OwnPlayerId spojuje stejnou osobu; teamContexts sjednotí dnešní vlastní hráčské, STANDARD trenérské a STANDARD rodičovské vztahy bez duplicit. Children obsahuje pouze vlastní neodvolané vazby s READ_CHILD; CHILD má children vždy [].
 
-P2 členství platí `[validFrom,validTo)`, NULL končí koncem sezóny. Pro běžný seznam/detail/soupisku se ověří dnešní vztah k přesnému team_season v Europe/Prague; minulé či budoucí členství nestačí. Bez vztahů seznam vrátí 403, cizí detail 404. ADMIN smí historické datum soupisky, ostatní jen dnešek. Own player má vlastní členskou historii; trenér pouze historii svých aktuálně svěřených sezónních týmů. Items i počty omezí stejný SQL scope. Minimální roster ani pro ADMIN neobsahuje personId, datum narození nebo kontakty. Soukromé osoby a kompletní seznam hráčů jsou ADMIN API.
+P2/P3 členství platí `[validFrom,validTo)`, NULL končí sezónou. Pro běžný seznam/detail/soupisku se ověří dnešní vztah k přesnému team_season v Europe/Prague; minulé či budoucí členství nestačí. Parent potřebuje neodvolanou vazbu a dnešní členství dítěte. Bez týmového vztahu seznam 403, cizí detail 404. ADMIN smí historické datum soupisky; ostatní jen dnešek. Own player a schválený rodič mají vlastní hráčovu členskou historii; trenér pouze historii aktuálně svěřených sezónních týmů. Items i počty používají stejný SQL scope. Minimální roster ani pro ADMIN neobsahuje personId, datum narození nebo kontakty. Soukromé osoby a kompletní seznam hráčů jsou ADMIN API.
 
-Každá operace nejprve zamkne klub a poté čerstvě ověří účet. Zánik členství se projeví i při staré session. Archivace zachovává platné čtení, neuděluje nový vztah. **CHILD zůstává fail-closed i v P2**: tabulka guardian_links sama neuděluje práva; aktivaci a negativní finance testy dodá až P3. Následující úplná matice obsahuje i dosud neimplementované operace.
+CHILD vyžaduje USER, vlastní osobu/hráče a alespoň jednoho schváleného enabled STANDARD rodiče při aktivaci, loginu i každém requestu. Osoba rodiče bez účtu nebo disabled rodič nestačí. Jedna odvolaná vazba při jiné kvalifikované vazbě účet neblokuje; ztráta poslední nastaví enabled=false a zvýší auth_revision. Regrant a obnovení rodiče samy dítě nezapnou. Session porovnává původní revizi; ani nikdy nepoužitá stará cookie nesmí ožít po opětovné aktivaci. Vlastní onboarding/setup obnoví pouze očekávanou vlastní revizi. V4 zakazuje dosavadní unsupported CHILD z P2 bez domýšlení údajů.
+
+Server má pro CHILD allowlist metody a cesty jen pro dostupné vlastní a scoped sportovní GET + auth/veřejné informace. Všechny mutace osoby, účtu, rolí/vazeb a veškeré finanční/notifikační cesty včetně součtů, exportů a read/count jsou 403. P3 ještě nemá finance/notifikace: jde o předběžnou ochranu, nikoli jejich funkční akceptaci. UI brána toto pravidlo nenahrazuje.
+
+Person-link, změny role/typu/přístupu, aktivace a guardian grant/revoke vyžadují odůvodnění. Správní mutace používají klubový výhradní zámek před fresh auth; běžná čtení sdílený zámek. Posledního enabled STANDARD COMPLETE ADMIN nelze odebrat. STANDARD→CHILD odmítá ADMIN, jakoukoli zachovanou trenérskou historii a neodvolané vazby jako rodič; výsledná změna typu je disabled. Použitá osoba účtu se nepřepojuje. Vlastní zástupce, CHILD zástupce a cyklický řetězec se odmítají. Následující úplná matice dále obsahuje dosud neimplementované operace.
 
 ## Přihlašovací základ
 
@@ -18,7 +22,7 @@ Chybějící/neplatná session vrací JSON 401, nedovolená operace JSON 403 ve 
 
 ## Systémová role, typ účtu a klubové vztahy
 
-Následující matice popisuje cílové operace po navazujících balíčcích; P1/P2 z ní implementují pouze výše vymezený rozsah. Účet má jednu systémovou roli `USER` nebo `ADMIN`. Běžný `STANDARD`/`USER` smí pracovat s vlastním účtem a povolenými vlastními údaji, číst své příspěvky a vlastní notifikace. Bez dalších vazeb nevidí týmové seznamy, kalendáře, jiné hráče ani konverzace. Registrace z uživatele automaticky nedělá hráče.
+Následující matice popisuje cílové operace po navazujících balíčcích; P1–P3 z ní implementují pouze výše vymezený rozsah. Účet má jednu systémovou roli `USER` nebo `ADMIN`. Běžný `STANDARD`/`USER` smí pracovat s vlastním účtem a povolenými vlastními údaji, číst své příspěvky a vlastní notifikace. Bez dalších vazeb nevidí týmové seznamy, kalendáře, jiné hráče ani konverzace. Registrace z uživatele automaticky nedělá hráče.
 
 Klubové činnosti mají tyto podmínky:
 
@@ -66,7 +70,7 @@ Není nutná samostatná osoba administrátora. Jediný provozovatel může pou�
 
 **Prvotní nastavení P1:** přihlášený účet `STANDARD` s `enabled = true` a dokončenou vlastní osobou převezme správu pomocí jednorázového instalačního tokenu z prostředí provozovatele. Prázdný `CLUB_SETUP_TOKEN` setup vypíná. Token nemá výchozí hodnotu a veřejná registrace ani pořadí registrací nenahrazuje jeho ověření. Transakce pod `FOR UPDATE` nad klubem ověří token, nedokončené nastavení a absenci prvního administrátora, přidělí `ADMIN` a uloží `club.setup_completed_at` a `setup_completed_by`. Po dokončení není token znovu použitelný ani při pozdějším odebrání role; souběžné převzetí smí uspět jen jednou. `CHILD` nesmí správu převzít. Token se neukládá do DB, auditu ani logů.
 
-P1/P2 poskytují setup, sporty, týmy, hráče a trenérská přiřazení; správu účtů a rodičů doplní P3. Existující ADMIN při V2 zachová práva a uzavře bootstrap; i on nejdříve doplní vlastní osobu. Veřejná registrace nadále vytváří `USER`/`STANDARD`. Samostatný provoz nepřidává práva ostatním účtům. Konverzace stále vyžaduje alespoň dva oprávněné účastníky; bez dalších účtů se tato funkce nepoužívá.
+P1–P3 poskytují setup, sporty, týmy, hráče, členství, účty, rodiče a omezené dětské přihlášení. Navazující událostní a finanční činnosti ještě nejsou dostupné. Existující ADMIN při V2 zachová práva a uzavře bootstrap; i on nejdříve doplní vlastní osobu. Veřejná registrace nadále vytváří `USER`/`STANDARD`. Samostatný provoz nepřidává práva ostatním účtům. Konverzace stále vyžaduje alespoň dva oprávněné účastníky; bez dalších účtů se tato funkce nepoužívá.
 
 ## Kontrola objektu na serveru
 
@@ -87,7 +91,7 @@ Session obsahuje identitu, ale typ účtu, role a citlivé vazby se ověřují �
 
 ## Negativní akceptační scénáře navazujících etap
 
-Jde o **plánované testy**, nikoli výsledky skeletonu. Vzniknou jako backend integrační testy nad Testcontainers a odpovídající frontend testy. Pokud scénář uvádí jen trenéra, hráče či rodiče, účet nemá další oprávnění, které by pokus dovolovalo.
+Jde o **celou cílovou testovací matici**, nikoli prohlášení, že je kompletně provedena. P1–P3 pokrývají dostupné identity/týmy/rodiče/CHILD hranice, podrobnosti a počty běhů jsou v verification.md. Finance/notifikace jsou v P3 pouze deny testy před implementací; událostní, výsledkové a komunikační scénáře vzniknou s jejich funkcemi. Pokud scénář uvádí jen trenéra, hráče či rodiče, účet nemá další oprávnění, které by pokus dovolovalo.
 
 | ID | Pokus | Očekávaný výsledek |
 | --- | --- | --- |

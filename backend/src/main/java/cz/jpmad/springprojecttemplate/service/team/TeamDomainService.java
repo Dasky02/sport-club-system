@@ -132,13 +132,13 @@ public class TeamDomainService {
     }
     private PlayerResponse readablePlayer(User u,UUID id,LocalDate day) {
         var p=data.player(id);
-        if(!admin(u) && !p.personId().equals(u.getPersonId()) && !data.coachCanReadPlayer(id,u.getId(),day)) throw new NoSuchElementException();
+        if(!admin(u) && !p.personId().equals(u.getPersonId()) && !data.coachCanReadPlayer(id,u.getId(),day) && !data.parentCanReadPlayer(id,u.getPersonId())) throw new NoSuchElementException();
         return p;
     }
     public PlayerBasicResponse player(UUID actor,UUID id) { var p=readablePlayer(actor(actor,false,false),id,today()); return new PlayerBasicResponse(p.id(),p.firstName(),p.lastName()); }
     public Page<PlayerHistoryResponse> playerHistory(UUID actor,UUID id,int page,int size) {
         var u=actor(actor,false,false); LocalDate day=today(); var p=readablePlayer(u,id,day); page(page,size);
-        return data.playerHistory(id,u.getId(),day,admin(u)||p.personId().equals(u.getPersonId()),page,size);
+        return data.playerHistory(id,u.getId(),day,admin(u)||p.personId().equals(u.getPersonId())||data.parentCanReadPlayer(id,u.getPersonId()),page,size);
     }
     private TeamSeasonResponse membershipTeam(UUID id) {
         var ts=data.teamSeason(id); open(ts); if(!ts.isClubTeam()) conflict("STATE_CONFLICT","Externí tým nemůže mít interní členství."); return ts;

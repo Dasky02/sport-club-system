@@ -24,6 +24,7 @@ public class PersonService {
     private final AuditRepository audit;
     private final Clock clock;
     private final TeamDomainRepository teamData;
+    private final AccountDomainRepository accountData;
     @Transactional
     public PersonResponse getOwn(UUID actorId) {
         clubs.lockForRead();
@@ -56,12 +57,13 @@ public class PersonService {
         clubs.lockForRead();
         var user = accounts.requireUsable(actorId);
         List<String> capabilities = user.getPersonId() != null && user.getRole() == Role.ADMIN
-                ? List.of("MANAGE_CLUB", "MANAGE_SPORTS", "MANAGE_SEASONS", "MANAGE_TEAMS", "MANAGE_PLAYERS", "MANAGE_MEMBERSHIPS") : List.of();
+                ? List.of("MANAGE_CLUB", "MANAGE_SPORTS", "MANAGE_SEASONS", "MANAGE_TEAMS", "MANAGE_PLAYERS", "MANAGE_MEMBERSHIPS", "MANAGE_ACCOUNTS", "MANAGE_GUARDIANS") : List.of();
         if (user.getPersonId() == null) return new ContextResponse(user.getAccountType(), capabilities, null, List.of(), List.of());
         LocalDate today = LocalDate.now(clock.withZone(ZoneId.of("Europe/Prague")));
         var teams = teamData.currentTeamIds(user.getId(), user.getPersonId(), today).stream()
                 .map(id -> new ContextResponse.TeamContext(id, List.of("READ_TEAM"))).toList();
-        return new ContextResponse(user.getAccountType(), capabilities, teamData.ownPlayer(user.getPersonId()).orElse(null), teams, List.of());
+        return new ContextResponse(user.getAccountType(), capabilities, teamData.ownPlayer(user.getPersonId()).orElse(null), teams,
+                user.getAccountType()==cz.jpmad.springprojecttemplate.model.user.enums.AccountType.STANDARD ? accountData.children(actorId).stream().map(c->new ContextResponse.ChildContext(c.playerId(),c.displayName(),List.of("READ_CHILD"))).toList() : List.of());
     }
     private String optional(String value) { return value == null || value.isBlank() ? null : value.strip(); }
 }

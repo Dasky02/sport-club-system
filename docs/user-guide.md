@@ -1,161 +1,121 @@
 # Uživatelská příručka
 
-Příručka odděluje **dostupné E0 + P1/P2** od plánované klubové aplikace. Dostupné jsou identita/setup/sporty, sezóny, týmy, offline hráči, členství a oprávněné soupisky/historie. Rodiče a omezené dětské přihlášení až v P3; události, výsledky, finance a komunikace v dalších etapách. Čtyři úplné klubové pracovní postupy se dokončí postupně. [Požadavky](requirements.md) sledují rozsah, [ověření](verification.md) skutečné kontroly.
+**Dostupné E0 + P1–P3:** účty a osobní údaje, bezpečné prvotní nastavení, sporty, sezóny, týmy, hráči, členství, rodičovské vazby, Moje děti a omezené dětské přihlášení. Níže jsou skutečné obrazovky této dodávky. Kalendář, dostupnost/nominace/docházka, soutěže, výsledky/statistiky, příspěvky, notifikace a konverzace jsou odděleně označený **plán**. Celý projekt ani úplná akceptace E1 nejsou uzavřené; rozsah sledují [požadavky](requirements.md), provedené kontroly [ověření](verification.md).
 
-## Registrace, přihlášení a vlastní osobní údaje
+## Přihlášení a vlastní osoba
 
-Po spuštění podle [README](../README.md) otevřete `http://localhost:3000`; veřejnou HTTPS adresu poskytne provozovatel až po nasazení. Úvod nabízí **Vytvořit účet**, **Přihlásit se** a stav skutečného API včetně verze. Nedostupné API není potvrzené odhlášení.
+Po spuštění podle [README](../README.md) otevřete `http://localhost:3000`. Veřejnou HTTPS adresu poskytne provozovatel až po skutečném nasazení.
 
-1. Na `/register` vyplňte username o 3–50 znacích a dvakrát vlastní heslo. Backend požaduje 6–72 znaků a nejvýše 72 UTF-8 bajtů; diakritika může zabírat více bajtů. Registrace vytváří USER/STANDARD/PENDING a sama nepřihlašuje ani nepřiděluje ADMIN.
-2. Přihlaste se na `/login`. Dashboard **Můj účet** zobrazuje účet ověřený backendem. U neúplného účtu nabídne **Doplnit osobní údaje**.
-3. Otevřete `/profile` — **Vaše osobní údaje**. Vyplňte povinné **Jméno** a **Příjmení** (nejvýše 100 znaků každé), případně datum narození, e-mail a telefon. Budoucí datum narození se odmítne. Klikněte **Uložit osobní údaje**.
-4. Po potvrzení **Váš profil je dokončený.** se zobrazí skutečně uložená vlastní osoba. P1 dovoluje jednorázové doplnění a následné čtení; self-service editaci ani připojení cizí osoby neposkytuje. ADMIN může v P2 editovat osobní údaje v přehledu osob, nikoli přepojovat účet. Dokončení osoby nevytváří hráče, tým ani rodičovskou vazbu.
-5. Obnovte stránku pro ověření serverové session. Při vypršení se přihlaste znovu. **Odhlásit se** ukončí session po potvrzení backendem; chyba spojení se nesmí vydávat za úspěšné odhlášení.
+1. Na `/register` vyplňte **Uživatelské jméno** (3–50 znaků), **Heslo** a **Heslo znovu**. Heslo má 6–72 znaků a nejvýše 72 UTF-8 bajtů; diakritika může spotřebovat více bajtů. Registrace vytvoří USER/STANDARD/PENDING, sama nepřihlašuje a nepřiděluje správu klubu.
+2. Přihlaste se na `/login`. **Můj účet** zobrazuje skutečně ověřený účet. Neúplný účet nabídne **Doplnit osobní údaje**.
+3. Pokud vás klub již eviduje, před vytvořením další osoby požádejte ADMIN o ověřené propojení účtu. Shodné jméno nebo e-mail osoby automaticky nespojí. Pokud záznam nemáte, na `/profile` vyplňte **Jméno**, **Příjmení**, případně datum narození, e-mail a telefon; potvrďte **Uložit osobní údaje**. Jméno i příjmení mají nejvýše 100 znaků, datum nesmí být v budoucnosti.
+4. Po potvrzení **Váš profil je dokončený.** se zobrazí vlastní údaje ke čtení. Jejich opravu provádí ADMIN po ověření. Dokončení osoby samo nevytváří hráčský profil, týmové členství ani rodičovskou vazbu.
+5. **Odhlásit se** na dashboardu ukončí serverovou session. Při vypršení nebo administrátorské bezpečnostní změně se přihlaste znovu. Výpadek API sám není potvrzené odhlášení; použijte nabídnuté **Zkusit znovu**.
 
-Session cookie a CSRF klient spravují automaticky. Při výpadku použijte **Zkusit znovu**; nesdílejte hesla ani cookies. PENDING může dokončovat vlastní onboarding a načíst prázdný kontext. Nastavení klubu a sporty vyžadují dokončenou osobu; nejsou cestou k obejití onboardingu.
+Máte-li účet již vytvořený správcem na ověřenou osobu, po přihlášení vlastní onboarding neopakujete. Rodič i dítě mají oddělené účty, hesla a přihlášení. Cookie a CSRF spravuje aplikace automaticky; nesdílejte je.
 
-## První nastavení klubu v P1
+## První nastavení klubu — dostupné
 
-Pro novou instalaci nastaví provozovatel soukromý `CLUB_SETUP_TOKEN` v prostředí **backendu** podle [README](../README.md). Prázdná hodnota setup vypíná; neexistuje výchozí token nebo účet. Token nepatří do URL, veřejné dokumentace ani NEXT_PUBLIC proměnné.
+Provozovatel nastaví soukromý `CLUB_SETUP_TOKEN` pouze v backendu podle [README](../README.md). Prázdná hodnota setup vypíná; neexistuje výchozí token nebo účet. Token nepatří do URL, veřejné dokumentace ani NEXT_PUBLIC proměnné.
 
-1. S dokončeným STANDARD účtem otevřete `/setup` — **Nastavení klubu**. Dashboard nabízí odkaz, pokud je profil hotový.
-2. Je-li převzetí dostupné, vyplňte **Instalační token** a potvrďte **Převzít správu klubu**. Ověření proběhne na serveru; první registrant nemá automatickou přednost ani ADMIN.
-3. Po úspěchu aplikace načte aktuální roli a kontext. Tentýž účet je nyní ADMIN a zobrazí se **Správa klubu je již nastavená.** Setup nelze použít podruhé ani po pozdější změně role.
-4. Pokud je setup nedostupný, provozovatel ověří konfiguraci backendu nebo již dokončenou instalaci. Chybný token neopakujte automaticky. Neměňte ručně stav databáze, abyste setup znovu otevřeli.
+1. S dokončeným STANDARD účtem otevřete `/setup` — **Nastavení klubu**.
+2. Je-li převzetí dostupné, zadejte **Instalační token** a potvrďte **Převzít správu klubu**. První registrant nemá automatickou přednost ani ADMIN.
+3. Po úspěchu má tentýž účet ADMIN a zobrazí se **Správa klubu je již nastavená.** Setup se už neopakuje; samotná pozdější změna role jej neotevře.
+4. Pokud je setup nedostupný, provozovatel ověří konfiguraci nebo již nastavený klub. Neotevírejte setup ruční změnou databáze. CHILD jej použít nemůže.
 
-Existující ADMIN z V1 zůstává administrátorem a V2 označí setup za dokončený. Tento správce si po přihlášení nejprve doplní vlastní osobu; další tokenové převzetí není potřeba. P1 nemá obecnou správu rolí ostatních účtů.
+Existující ADMIN z V1 se zachová a V2 uzavře bootstrap. Tento správce nejprve doplní vlastní osobu; další tokenové převzetí nepotřebuje. Vlastní onboarding a setup zachovávají aktuální session, běžné bezpečnostní změny účtů ji mohou odvolat.
 
-## Správa sportů v P1
+## Administrátor: sporty, sezóny, týmy a hráči — dostupné
 
-Dokončený ADMIN otevře `/admin/sports` — **Správa sportů**. Běžný USER správu nemá; backend odmítne i přímý nepovolený požadavek.
+Dokončený STANDARD ADMIN otevře **Administrace** (`/admin`). Běžné trenérské nebo rodičovské přiřazení tuto správu samo neposkytuje.
 
-1. Vyplňte **Kód sportu** a **Název sportu**, poté **Přidat sport**. Kód má 1–40 znaků, začíná písmenem A–Z a dále obsahuje jen velká písmena, číslice a podtržítko. UI jej převádí na velká písmena. Název má nejvýše 100 znaků.
-2. Pro demonstrační základ založte například `FOOTBALL` / Fotbal a `BASKETBALL` / Basketbal ve stejné instalaci. Nejsou vložené skrytým produkčním seedem; jde o skutečné záznamy vytvořené adminem.
-3. Seznam má stránkování a zobrazuje i deaktivované sporty. Pomocí **Upravit** změňte název; **Deaktivovat** a **Aktivovat** mění použitelnost záznamu. Kód se po vytvoření nemění a mazání sportu není dostupné.
+1. Ve **Sporty** (`/admin/sports`) vyplňte **Kód sportu** a **Název sportu**, poté **Přidat sport**. Kód je stabilní: 1–40 znaků, první písmeno A–Z, dále velká písmena, číslice nebo podtržítko. UI jej převádí na velká písmena. Název má nejvýše 100 znaků. Založte například FOOTBALL/Fotbal a BASKETBALL/Basketbal ve stejné instalaci. **Upravit**, **Deaktivovat** a **Aktivovat** mění název nebo použitelnost, nemažou historii.
+2. V **Sezóny** (`/admin/seasons`) zadejte název, začátek a konec. Začátek patří do sezóny, konec již ne: 1. 7. 2026 až 1. 7. 2027 zahrnuje 30. 6. 2027. Použité datumové hranice se nemění. **Archivovat sezónu** vyžaduje potvrzení; zachová čtení a zablokuje běžné změny sezónních týmů a členství. Vrácení archivace není dostupné.
+3. V **Týmy a členství** (`/admin/teams`) založte základní tým s jedním aktivním sportem. **Klubový tým** má vlastní soupisku; nezaškrtnutý typ je externí soupeř bez interních členství. Ve formuláři **Zařadit tým do sezóny** vyberte tým, otevřenou sezónu a sezónní název. Ten se pozdějším přejmenováním základního týmu nepřepíše. Jednu dvojici nelze přidat dvakrát; po použití nelze měnit sport nebo typ týmu.
+4. V **Hráči a osoby** (`/admin/players`) zvolte **Nová osoba a hráč společně**, nebo **Již evidovaná osoba** s datem narození a bez hráčského profilu. Jméno, příjmení a datum narození hráče jsou povinné. Osoba a hráč vzniknou atomicky, žádný účet ani rodič se tím nevytvoří. V přehledu osob lze údaje upravit; hráči nelze datum narození vymazat nebo profil přepojit na jinou osobu.
+5. U sezónního týmu otevřete **Spravovat členství**. Vyberte hráče a interval a potvrďte **Přidat hráče do týmu**. V trenérském formuláři lze vybrat vlastní ADMIN účet; další uživatel není nutný. Nabídka obsahuje jen povolené STANDARD účty s dokončenou osobou.
 
-P2 kontext přidává správu sezón, týmů, hráčů a členství; týmové čtení vzniká jen z platného přiřazení. Založení sportu samo není hotový soutěžní nebo statistický scénář; ty dodají P4–P6.
+Interval má zahrnutý začátek a vyloučený konec. Prázdný konec znamená konec sezóny. Překryv stejného hráče/trenéra ve stejném sezónním týmu se odmítne; sousední intervaly a souběžné členství v jiném týmu jsou přípustné. **Upravit interval** ukládá oba datumové údaje. Při přestupu ukončete starý interval a založte nový, historické řádky nemažte. Při konfliktu zůstávají rozepsané údaje pro opravu.
 
-## Sezóny, týmy a hráči v P2 — dostupné
+## Administrátor: ověřené účty a přístup — dostupné P3
 
-1. Jako ADMIN otevřete **Administrace** → **Sezóny** (`/admin/seasons`). Vyplňte název, začátek a konec. Začátek patří do sezóny, konec už ne: 1. 7. 2026 až 1. 7. 2027 zahrnuje 30. 6. 2027. Použité datumové hranice se již nemění.
-2. V **Týmy a členství** (`/admin/teams`) založte základní tým: název, jeden aktivní sport a **Klubový tým**. Nezaškrtnutý typ znamená externího soupeře, kterému nelze přidat interní členství.
-3. Ve formuláři **Zařadit tým do sezóny** vyberte tým a otevřenou sezónu a napište sezónní název. Tento název zůstane zachovaný i při přejmenování základního týmu. Jednu dvojici nelze přidat dvakrát; po použití nelze přepnout sport nebo typ týmu.
-4. V **Hráči a osoby** (`/admin/players`) zvolte **Nová osoba a hráč společně**. Jméno, příjmení a datum narození jsou povinné; kontakty volitelné. Vznikne osoba a hráč atomicky, žádný účet ani rodič. Nebo vyberte **Již evidovaná osoba** s datem narození a bez hráčského profilu. Podobné jméno osobu automaticky nepropojí.
-5. V přehledu **Osoby** lze načíst a upravit osobní údaje. Hráči nejde datum narození vymazat. Editace nepřepojuje účet ani hráče na jiného člověka.
-6. Na kartě sezónního týmu otevřete **Spravovat členství**. Zvolte hráče a interval, potvrďte **Přidat hráče do týmu**. V trenérském formuláři lze vybrat vlastní ADMIN účet; další uživatel není nutný. Nabídka obsahuje jen enabled STANDARD účty s dokončenou osobou.
+Otevřete **Přístupové účty** (`/admin/accounts`). Účet a osoba jsou různé záznamy. Nepotvrzujte propojení pouze podle podobného jména.
 
-Členství má zahrnutý začátek a vyloučený konec. Prázdný konec znamená konec sezóny. Stejný hráč/trenér nemůže mít dva překrývající se intervaly ve stejném sezónním týmu; sousední intervaly a členství v jiném týmu jsou přípustné. **Upravit interval** vždy uloží oba datumové údaje. Při přestupu ukončete starý interval a založte nový, historické řádky nemažte. Při konfliktu zůstávají rozepsané údaje pro opravu.
+1. Pro rodiče nebo jiného člena bez hráčského profilu použijte formulář **Nová osoba pro účet** a **Vytvořit osobu**. Není nutné z něj vytvářet hráče. Pokud osoba již existuje, použijte její původní záznam.
+2. V **Nový přístupový účet** vyberte **Ověřená osoba**, zadejte **Uživatelské jméno**, **První heslo** a **Typ nového účtu**. Potvrďte **Vytvořit přístupový účet**. Osoba nesmí mít jiný účet. Vznikne USER; běžný účet je povolený, dětský zakázaný. CHILD již musí mít vlastní hráčský profil.
+3. První heslo předejte soukromě oprávněné osobě, u dítěte ověřenému rodiči, přes bezpečný kanál. Při veřejném provozu použijte HTTPS. Formulář heslo při odeslání vymaže i při chybě. Aplikace jej nevrací, neposílá automatický e-mail ani nenabízí pozvánkový/password reset mechanismus.
+4. U již registrovaného účtu bez osoby vyberte **Osoba pro propojení**, vyplňte **Odůvodnění propojení** a použijte **Propojit ověřenou osobu**. UUID a heslo účtu zůstanou, vznikne vazba na vybranou osobu. Již použitý účet nelze přepojit na jiného člověka.
+5. **Systémová role** + **Odůvodnění změny role** + **Uložit roli** mění USER/ADMIN. Trenéra vytváří samostatné týmové přiřazení, rodiče samostatná schválená vazba. CHILD nemůže dostat ADMIN.
+6. **Typ účtu** + **Odůvodnění změny typu** + **Uložit typ účtu** otevře potvrzení dopadu. Až **Potvrdit změnu typu účtu** provede operaci. STANDARD→CHILD vyžaduje vlastního hráče a odmítne ADMIN, jakékoli zachované trenérské členství nebo aktivní rodičovskou vazbu. Účet po změně zůstane zakázaný; CHILD→STANDARD také vyžaduje následné samostatné povolení.
+7. Vyplňte **Odůvodnění změny přístupu**. U běžného zakázaného účtu použijte **Povolit účet**. **Zakázat účet** vyžaduje ještě **Potvrdit zákaz účtu**: odvolá přihlášení a jako zákaz posledního aktivního rodiče může zakázat i jeho děti. U dětského účtu je dostupná pouze samostatná **Aktivovat dětský účet**, popsaná níže.
 
-**Archivovat sezónu** vyžaduje potvrzení. Historie zůstane čitelná, běžné změny sezóny, jejích sezónních týmů a členství se zablokují; vrácení archivace tato etapa neposkytuje. Základní tým a osobní údaje jsou samostatné záznamy, nejsou historickými snímky všech osobních údajů.
+Důvod bezpečnostní změny má 1–500 znaků. Nevkládejte do něj hesla, tajné nebo osobní údaje; patří do auditu. Posledního povoleného STANDARD ADMIN s dokončenou osobou nelze demotovat, zakázat nebo převést na CHILD. Pokud změníte vlastní bezpečnostní stav, další ověření vás může odhlásit. Stará přihlášení nepoužívejte znovu ani po pozdějším povolení účtu.
 
-## Soupisky a vlastní historie v P2 — dostupné
+## Administrátor: rodiče a aktivace dítěte — dostupné P3
 
-V **Týmy** (`/teams`) ADMIN vidí všechny sezónní týmy. Ostatní dokončené STANDARD účty vidí pouze týmy, kde mají právě dnes trenérské nebo vlastní hráčské členství. Dřívější ani budoucí interval přístup nezaloží. Členství lze přidat pouze k účtům/osobám explicitně vybraným administrátorem; registrace sama není hráč.
+1. V `/admin/players` u dítěte zvolte **Rodiče a zástupci**. Hráč může nadále zůstat bez účtu a bez rodiče; vazba není podmínkou vedení offline hráče.
+2. Ve formuláři **Schválit rodičovskou vazbu** vyberte **Ověřený rodič nebo zástupce**, doplňte **Odůvodnění schválení** a potvrďte **Schválit rodičovskou vazbu**. Ověřte skutečnou identitu i oprávnění zastupovat konkrétního hráče. Odmítne se vztah k sobě samému, rodičovský cyklus a CHILD jako rodič. Jedno dítě může mít více zástupců a jeden rodič více dětí.
+3. Osoba rodiče může existovat bez účtu. Přístup do **Moje děti** a způsobilost pro aktivaci CHILD však vyžadují vlastní povolený STANDARD účet na téže osobě. Samotný kontakt rodiče nestačí.
+4. Dětský účet vytvořte na vlastní osobě hráče ve **Přístupové účty**, typ **Dětský účet**. Vznikne zakázaný s rolí USER. Po schválení alespoň jednoho aktivního rodiče vyplňte důvod přístupu a použijte **Aktivovat dětský účet**. Přidání rodiče samo dítě neaktivuje. Nesplněné podmínky nechají účet zakázaný.
+5. Pro odvolání u konkrétní rodičovské karty vyplňte **Odůvodnění odvolání**, zvolte **Odvolat rodičovskou vazbu** a až po přečtení dopadu **Potvrdit odvolání vazby**. Seznam zachová odvolaný záznam. Opětovné schválení používá stejnou dvojici a má audit.
 
-**Zobrazit soupisku** otevře jména a intervaly členství, bez kontaktů, data narození nebo financí. ADMIN může vybrat **Soupiska ke dni** pro historický stav, ostatní mají dnešní soupisku. **Profil a členství** otevře minimální profil a povolenou historii: vlastní hráč celou svou, trenér jen aktuálně svěřené sezónní týmy. Ukončení posledního přiřazení odstraní další týmový přístup i při stále přihlášené session. Archivace sama nevytváří oprávnění. Historické výsledkové pohledy přijdou s P5/P6.
+Odebrání jedné z více platných aktivních rodičovských vazeb dítě neblokuje. Ztráta poslední nebo zákaz posledního kvalifikovaného rodiče zakáže CHILD a odvolá jeho sessions. Profily a sportovní historie zůstanou. Opětovné schválení vazby nebo povolení rodiče dítě automaticky nezapne: podmínky ověřte a dítě znovu samostatně aktivujte. Stará cookie zůstane neplatná i po reaktivaci, včetně přihlášení nepoužitého během zákazu.
 
-## Přechod starších účtů a dosavadní omezení
+## Trenér: svěřené soupisky — dostupné
 
-V2 zachovává UUID účtu, BCrypt heslo a časy. Staré ADMIN se zachová, COACH/PLAYER/PARENT se převedou na USER bez automaticky domyšleného týmu nebo dítěte. `legacy_role` je neveřejná migrační evidence. Chybějící osobní údaje se nevyrábějí z loginu: účet má dočasně nullable person a projde vlastním onboardingem.
+Trenér je STANDARD účet s platným přiřazením k týmu, nikoli zvláštní systémová role. Chybějící přiřazení řeší ADMIN. V **Týmy** (`/teams`) zvolte aktuálně svěřený sezónní tým a **Zobrazit soupisku**. Seznam i počty respektují dnešní interval. Minulé ani budoucí přiřazení samo aktuální přístup nedává.
 
-P2 poskytuje ADMIN osoby a týmový základ výše; správa jiných účtů/rolí, person-link, rodičovské vztahy, finance, kalendář a zprávy ještě nejsou dostupné. Typ CHILD je v modelu a guardian_links v DB, ale vytvoření a aktivace CHILD i rodičovská oprávnění jsou až P3; CHILD zůstává blokovaný. Další části příručky jsou cílové postupy pro pozdější balíčky.
+Soupiska obsahuje jména a intervaly, bez kontaktů, data narození a financí. **Profil a členství** otevře minimální profil hráče a pouze aktuálně svěřené sezónní týmy. ADMIN má navíc historický filtr **Soupiska ke dni** a správu členství. Archivace data zachová, sama ale přístup nevytváří. Ukončení přiřazení se projeví i během přihlášené session.
 
-## Účty a činnosti v cílové aplikaci
+## Hráč: vlastní profil a historie — dostupné
 
-**Stav: týmové čtení a administrace P2 dostupné výše; zbytek následujících úplných postupů je plán P3–P9.** USER/ADMIN a STANDARD/CHILD již existují; rodičovské vazby a funkční CHILD ještě nefungují. Trenérská, hráčská a rodičovská oprávnění se odvodí z konkrétního přiřazení k týmu, vlastního hráčského profilu a schválené vazby k dítěti. Jeden STANDARD účet může být zároveň trenérem, rodičem i administrátorem. Každá činnost se ověřuje pro konkrétní tým, dítě a období.
+Přihlášený hráč je účet propojený přes stejnou osobu s vlastním hráčským profilem. Registrace samotná toto propojení nevytváří. Na dashboardu otevřete **Můj hráčský profil** nebo **Profil a členství**. Vlastní členská historie zůstává dostupná i po přestupu. **Týmy** nabízejí jen dnešní vlastní členství. Opravu údajů a intervalů řeší ADMIN; profil bez účtu lze nadále vést offline.
 
-STANDARD/USER bez vazeb bude mít přístup k vlastnímu účtu, povoleným vlastním údajům, vlastním příspěvkům a notifikacím. Registrace nevytvoří hráčský profil ani trenérské oprávnění. Účet a hráčský profil spojuje stejná osoba; propojení ověřuje administrátor.
+### Dítě s omezeným účtem — dostupné P3
 
-Hráč, včetně dítěte, může existovat bez přihlášení a bez rodičovské vazby. Rodiče lze evidovat jako osoby i bez účtu; tím jim nevzniká přístup nebo schránka. Pokud rodiče ani hráči účty nepoužívají, sportovní údaje spravuje oprávněný trenér a příspěvky administrátor. Dítě není systémová role. Omezený dětský účet má další podmínky popsané níže.
+Přihlaste se vlastním dětským loginem. **Osobní údaje** jsou jen ke čtení, vlastní hráčský profil obsahuje povolenou členskou historii a **Týmy** dnešní vlastní soupisky. U spoluhráčů se zobrazují pouze jména a intervaly; cizí profil nebo sourozenec tím dostupný není.
 
-## Jeden trenér spravující vlastní tým — dostupný základ a plán
+Dítě nespravuje účty, rodiče, vlastní typ/roli/osobu nebo datum narození. Nemá **Nastavení klubu**, **Administrace**, **Moje děti** ani finanční přehled. Zákaz předpisů, plateb, součtů, exportů a finančních oznámení včetně počtů platí i pro přímé API cesty. Jde o předběžnou bezpečnostní hranici; příspěvky a schránka ještě nejsou dostupné ani jako dokončená rodičovská agenda. Sportovní kalendář, dostupnost a komunikace jsou také plán.
 
-**Stav:** kroky 1–4 jsou dostupné v P1/P2, kroky 5–6 plánované. Stačí jediný STANDARD účet s ADMIN, jehož majitel bude současně trenérem. Samostatný administrátorský účet, hráčské účty ani rodiče nejsou pro tento způsob použití nutné.
+Po zákazu účtu nebo ztrátě posledního aktivního rodiče se znovu nepřihlašujte cizími údaji. Rodič s ADMIN ověří vazbu a samostatnou aktivaci; po ní použijte nové přihlášení.
 
-1. Zaregistrovat běžný účet a přihlásit se. V dostupném prvotním nastavení P1 převzít správu jednorázovým instalačním tokenem, který provozovatel nastaví v prostředí. Token nemá výchozí hodnotu. Po úspěchu se uloží dokončení nastavení a token už nelze použít; první registrace sama ADMIN nepřiděluje. P1 tento setup poskytuje.
-2. V P1/P2 založit sporty, otevřít sezónu a založit vlastní tým podle [databázového návrhu](database.md).
-3. Přiřadit vlastní účet jako trenéra týmu. Stejné přihlášení pak používá správní i trenérské činnosti.
-4. Založit osoby, hráčské profily a jejich týmová členství. Hráči mohou zůstat bez účtu a bez rodiče.
-5. Evidovat akce, nominace, docházku, výsledky a statistiky; správními právy také příspěvky a skutečné úhrady.
-6. Další účty přidat až podle potřeby. Dětský účet aktivovat pouze se schváleným rodičem s aktivním STANDARD účtem. Bez dalších účtů nevytvářet fiktivní konverzace ani doručení.
+## Rodič / zákonný zástupce: moje děti — dostupné P3
 
-Jediný účet může mít všechny potřebné pravomoci, ale stále dodržuje validaci sportovních údajů, částek a historie. Ostatním uživatelům tím žádná práva nevznikají.
+Přihlaste se vlastním povoleným STANDARD účtem na osobě schváleného zástupce. Systémová role PARENT se neuděluje. Dítě vlastní účet mít nemusí.
 
-## Administrátor klubu — plánované pracovní postupy
+1. V navigaci nebo dashboardu otevřete **Moje děti** (`/my-children`). Seznam i počty obsahují jen schválené děti této osoby; při přímém otevření bez vazeb je seznam prázdný. Chybějící dítě řešte s ADMIN, dosazení cizího ID právo nezaloží.
+2. U konkrétního dítěte otevřete **Profil dítěte**. Uvidíte základní jméno a **Historie členství**, bez kontaktů, data narození nebo finančních údajů.
+3. **Zobrazit tým** je dostupné pro dnešní oprávněný sezónní tým. V **Týmy** vidíte sjednocení dnešních týmů schválených dětí, případně vlastních a trenérských přiřazení. Minulá historie dítěte sama nedává dnešní týmový přístup. Obecný profil cizího spoluhráče může server odmítnout, i když vidíte jeho jméno na soupisce dítěte.
+4. Odvolání vztahu odstraní další přístup k tomuto dítěti; jiné platné děti a oprávnění zůstanou. Dvěma rodičům se práva vyhodnocují samostatně. CHILD účet rodičovský přehled nemá.
 
-**Stav:** ADMIN má P1/P2 včetně osob/hráčů/sezón/týmů/členství. Tabulka popisuje celý cílový rozsah; účty/rodiče, soutěže, události, finance a komunikace jsou ještě plán P3–P9. ADMIN bude spravovat i příspěvky, účty a vztahy. Citlivé změny mají audit; ruční příznak „zaplaceno“ nenahrazuje skutečnou úhradu.
+## Jeden trenér jako jediný uživatel — dostupný základ
 
-| Úkol | Plánovaný postup a výsledek |
+Stačí jeden STANDARD ADMIN, který si přiřadí trenérství, založí současně fotbalový i basketbalový tým a vede offline hráče. Druhý administrátor, hráčská přihlášení ani rodiče nejsou podmínkou. Další účty a vztahy přidá až podle skutečné potřeby přes P3 správu. Založení dítěte bez loginu nevyžaduje rodiče; jeho CHILD aktivace ano. Události, docházku a výsledky tento základ dosud neposkytuje.
+
+## Navazující pracovní postupy — dosud plánované
+
+| Klubový kontext | Povinná agenda navazujících balíčků |
 | --- | --- |
-| Klub a sezóna | P1/P2 umožňují fotbal a basketbal v téže instalaci, sezóny a jejich hranice. Další sporty a jejich konfigurace nevyžadují změnu kódu ani ruční SQL. |
-| Členové a týmy | Založit osobu, hráčský profil, tým a časové členství. Trenérské přiřazení se váže přímo na účet a tým. Hráč může zůstat bez přihlášení i zástupce. Přestup ukončí starý interval a založí nový. |
-| Účty a vztahy | Přidělovat USER/ADMIN pouze účtům odpovídajícího typu; trenérská práva nastavit přiřazením. Ověřit propojení účtu a hráčského profilu přes osobu. Rodičovskou vazbu schválit mezi osobou rodiče a konkrétním hráčem; samotné zadání ID uživatelem nestačí. |
-| Dětský účet | Nový CHILD je neaktivní. Aktivovat jej pouze s vlastním hráčským profilem a alespoň jednou platnou vazbou na rodiče s aktivním STANDARD účtem. CHILD nesmí být ADMIN, trenérem, zástupcem ani převzít prvotní správu. Po odebrání poslední potřebné vazby nebo deaktivaci posledního odpovídajícího rodičovského účtu se přihlášení dítěte zablokuje; profil i historie zůstávají. |
-| Soutěž | Založit soutěž a ročník, přihlásit vlastní týmy i soupeře a nastavit formát, bodování a pořadí kritérií. Použitou konfiguraci chránit podle databázových pravidel. |
-| Statistiky | Přidat sport, název, typ, jednotku, meze a kompatibilní agregaci. Formulář výsledků použije tuto konfiguraci. Přejmenování založí novou verzi; historicky použitý význam se nepřepisuje a jiný typ či význam vyžaduje novou definici. |
-| Příspěvky | Vystavit osobě předpis s částkou, měnou a splatností. Každou skutečně přijatou úplnou nebo částečnou úhradu zaznamenat k předpisu. Zůstatek se vypočítá; přeplacení se odmítne. Chybnou úhradu stornovat s důvodem a případně zapsat správnou. |
-| Splatnosti | Přijímat oznámení nedoplatků před i po splatnosti. Příslušné oznámení dostává také člen se STANDARD účtem nebo oprávněný rodič; CHILD nedostává žádné finanční oznámení. Chybějící účet se nepovažuje za doručení. |
-| Historie | Vybrat minulou sezónu pro výsledky, statistiky a členství. Oprava potvrzeného výsledku či statistiky vytvoří novou výsledkovou revizi s důvodem a přepočtem; původní hodnoty zůstanou. Archivované údaje opravuje jen ADMIN. |
+| Administrátor | P4 soutěže, formáty a datová pravidla; P5 události/schránka; P6 dynamické statistiky, výsledky a pořadí; P7 předpisy, skutečné částečné úhrady/storna a splatnostní výzvy; P8 samostatné konverzace; P9 úplné HTTPS předání a obnova. |
+| Trenér | Publikovat TRAINING/MATCH/OTHER, číst dostupnost, připravit a publikovat nominaci, zvlášť zapsat skutečnou docházku/nastoupení, výsledek a statistiky; povolené konverzace a historie. Nominace nebude znamenat přítomnost. Samotné trenérství neudělí finance nebo správu rodičů. |
+| Hráč | Vlastní dostupnost/omluva, čtení nominace, docházky, výsledků a statistik, vlastní schránka a oprávněná komunikace. STANDARD navíc vlastní příspěvky; CHILD žádné finance ani finanční notifikace/počty. |
+| Rodič | Za schválené dítě dostupnost a omluva, čtení nominace, docházky, výsledků/statistik a příspěvků, výzvy před i po splatnosti a oprávněné konverzace. Platbu provede mimo aplikaci a skutečnou úhradu zaznamená ADMIN. |
 
-Administrátor používá vlastní schránku a vlastní oprávněné konverzace; role sama neumožňuje číst soukromé rozhovory ostatních. Může být zároveň trenérem vlastních týmů. Nasazení, HTTPS, zálohy a obnova mají samostatný [postup](deployment.md).
+Notifikace a konverzace budou dvě samostatné funkce. ADMIN nebude automaticky číst cizí soukromé rozhovory. Tabulky se vypočtou z potvrzených výsledků podle konfigurovatelných pravidel pro oba sporty; roadmapa nepředstavuje dokončenou implementaci.
 
-## Trenér — plánované pracovní postupy
+## Upgrade a obvyklé situace
 
-**Stav:** první krok (aktuální soupisky) je dostupný P2; ostatní kroky a úplné historické výsledky jsou plánované. Trenérská oprávnění vyplývají z platného přiřazení STANDARD účtu k týmu. Samotné přiřazení dovoluje pouze příslušné týmy a sezóny. Chybějící přiřazení řeší administrátor; trenér s ADMIN jej může spravovat stejným účtem.
-
-1. Vybrat tým a sezónu a prohlédnout svěřence bez nepotřebných osobních nebo finančních údajů. Profily nemusejí mít účty.
-2. Vytvořit trénink, zápas či jinou akci s místem, časem a uzávěrkou dostupnosti. U zápasu určit soupeře a případný ročník soutěže. Publikování vytvoří systémová oznámení oprávněným adresátům.
-3. Prohlédnout dostupnost, pokud ji hráči či rodiče zadali; nezapsaný údaj ponechat jako nezjištěný. Vybrat nominované a náhradníky a nominaci publikovat. Nominace ani dostupnost nepotvrzuje docházku.
-4. Po začátku publikované akce zapsat skutečnou docházku. U zápasu zvlášť evidovat, kdo skutečně nastoupil. Tyto zápisy nevyžadují účty hráčů či rodičů.
-5. Po skončení zápasu připravit výsledkovou revizi a případné části podle formátu. Statistické hodnoty zadat pouze skutečně nastoupivším hráčům podle platných definic. Potvrdit revizi a dokončit zápas až s platnými údaji; tabulka a agregace použijí pouze aktuální potvrzené výsledky dokončených zápasů. Oprava vytváří novou revizi a původní nemaže.
-6. V **Konverzacích** komunikovat s existujícími oprávněnými účty hráčů či rodičů. V **Notifikacích** číst automatické zprávy. Historické přehledy používat v povoleném týmovém a sezónním rozsahu.
-
-Samotné trenérské přiřazení nedovoluje přidělovat ADMIN, schvalovat rodiče, nastavovat definice statistik/bodování ani zapisovat platby. Má-li účet také ADMIN, tyto činnosti provádí správními právy. Finance dítěte zpřístupní rodičovská vazba nebo ADMIN, nikdy jen trenérské přiřazení. Společná akce několika týmů vyžaduje práva ke všem dotčeným týmům nebo správní oprávnění.
-
-## Hráč s vlastním účtem — plánované pracovní postupy
-
-**Stav:** STANDARD hráč může v P2 číst aktuální tým a vlastní členskou historii; ostatní kroky a CHILD jsou plánované. Hráčské přihlášení je volitelné. Administrátor propojí účet s vlastním profilem přes stejnou osobu a nastaví členství; samotný USER hráčem není. Profil bez účtu spravují oprávněný trenér a administrátor.
-
-1. Vybrat vlastní tým a kalendář. U publikované akce do uzávěrky zadat **Mohu přijít**, **Nemohu přijít** nebo **Nevím**, případně omluvu. Odpověď se týká vlastního profilu.
-2. Po publikování nominace ověřit výběr nebo náhradnictví. Potvrzená dostupnost sama nezaručuje nominaci.
-3. Prohlédnout vlastní docházku, nastoupení, výsledky, statistiky a historii. Tyto sportovní údaje hráč neopravuje; nepřesnost sdělí trenérovi.
-4. Hráč se STANDARD účtem může v **Příspěvcích** vidět vlastní předpisy, úhrady a zůstatky. Zaplatí mimo systém a ADMIN úhradu zaznamená. **Hráč s CHILD účtem finance vůbec nevidí; řeší je jeho rodič nebo ADMIN.**
-5. V **Notifikacích** číst povolená oznámení a označovat je přečtená; CHILD nemá finanční typy ani jejich počty. V **Konverzacích** komunikovat jako aktivní účastník v oprávněném týmu.
-
-Hráčské oprávnění nedovoluje měnit dostupnost spoluhráče ani číst cizí finance. Při přestupu zůstává vlastní historie dostupná, nové interní informace bývalého týmu nikoli. STANDARD účet může mít další oprávnění, která se posoudí samostatně.
-
-### Dítě s omezeným účtem — plán P3
-
-CHILD má vlastní přihlášení pro vlastní sportovní údaje, dostupnost a povolenou komunikaci. Účet je navázaný na konkrétní hráčský profil a alespoň jednoho schváleného rodiče s aktivním STANDARD účtem. Rodič může zastupovat několik dětí a dítě může mít několik schválených zástupců.
-
-Dítě nemění typ účtu, datum narození, osobu, systémovou roli ani rodičovské vazby. Nevidí předpisy, platby, částky, zůstatky, finanční exporty, součty ani finanční oznámení, včetně vlastních. Omezení platí i při přímém zadání URL/API a není jen skrytím položky menu. Tyto informace vidí oprávněný rodič a ADMIN.
-
-Po zániku poslední potřebné rodičovské vazby nebo deaktivaci posledního odpovídajícího rodičovského účtu se účet dítěte zablokuje a session ukončí. Obnovení vyžaduje platnou schválenou vazbu na aktivní STANDARD účet rodiče a aktivaci administrátorem; sportovní profil a historie se nemažou. U profilu bez přihlášení se rodič nevyžaduje, takže tento stav nebrání trenérovi evidovat tým samostatně.
-
-## Rodič / zákonný zástupce — plánované pracovní postupy
-
-**Stav: E1–E6, dosud neimplementováno.** Rodič může být pouze evidovanou osobou nebo se přihlásit STANDARD účtem. Přihlášená rodičovská práva vzniknou až administrátorským schválením vazby jeho osoby na konkrétní dítě; systémová role PARENT se neuděluje. Dítě vlastní účet mít nemusí, ale CHILD účet musí zůstat pod platným rodičovským vztahem.
-
-1. V **Moje děti** vybrat dítě se schválenou vazbou. Seznam i počty obsahují pouze vlastní oprávněné děti. Pokud dítě chybí, požádat administrátora o ověření; jméno ani dosazení cizího ID vazbu nevytvoří.
-2. V kalendáři dítěte do uzávěrky zadat dostupnost nebo omluvu. Odpověď druhého dítěte se tím nezmění.
-3. Po zveřejnění ověřit nominaci, později skutečnou docházku, nastoupení, výsledky a statistiky. Tyto sportovní zápisy rodič nepřepisuje.
-4. Prohlédnout příspěvky dítěte, splatnosti, zaznamenané částečné úhrady a zůstatky. Platbu provést mimo systém a chybný záznam řešit s ADMIN. Finance dítěte jsou dostupné rodiči, nikoli jeho CHILD účtu.
-5. Číst vlastní oznámení včetně finančních výzev pro oprávněné dítě. V konverzacích komunikovat jen jako aktivní účastník v kontextu týmu dítěte.
-
-Rodičovská vazba nedovoluje číst jiné děti, tvořit nominace ani zapisovat platby, výsledky či statistiky. Rodič může být zároveň trenérem; každá činnost se ověřuje zvlášť. Odebrání jedné vazby neruší jiné platné vztahy. Ztráta poslední vazby k danému dítěti ukončí rodičův další přístup; stará notifikace jej neobnoví. Pokud tím CHILD přijde o posledního aktivního oprávněného rodiče, jeho účet se dočasně zablokuje také.
-
-## Řešení obvyklých situací
+V2 zachovává UUID, BCrypt a časy, převádí staré COACH/PLAYER/PARENT na USER bez domýšlení vazeb. Neúplný účet má vlastní onboarding nebo ověřený admin person-link. V4 při upgradu zakáže všechny dřívější CHILD účty; osoba a vztahy se nevyrábějí odhadem. Správce je po ověření připraví a samostatně aktivuje.
 
 | Situace | Postup |
 | --- | --- |
-| Vypršela session | Přihlásit se znovu. Změnu s neověřeným výsledkem neopakovat automaticky. |
-| API je nedostupné | Ověřit spojení a službu, poté zkusit znovu. Výpadek neznamená potvrzené odhlášení. |
-| Zamítnutý přístup | Ověřit typ účtu, roli, týmové přiřazení a případnou vazbu k dítěti. UUID ani nová registrace práva nepřidají. |
-| CHILD nemá finanční přehled | Jde o záměrné omezení. Finance zkontroluje oprávněný rodič nebo ADMIN. |
-| CHILD byl zablokován po změně rodičovské vazby | S ADMIN ověřit alespoň jednu platnou vazbu na aktivní STANDARD rodičovský účet; nepoužívat cizí přihlášení. |
-| Přiřazení či vazba byly odebrány | Příslušná práva se znovu kontrolují i se starou session. Další platná oprávnění platí pouze ve svém rozsahu. |
-| Zastaralý formulář | Načíst aktuální stav a změnu znovu posoudit; nepřepsat novější data. |
-| Hráč nemá účet ani rodiče | Evidenci dále spravuje oprávněný trenér a ADMIN. Nevytvářet fiktivní adresáty oznámení. |
-| Trenér pracuje sám | V cílové aplikaci používá jediný STANDARD/ADMIN účet s vlastním trenérským přiřazením. |
+| Vypršela nebo byla odvolána session | Nově se přihlásit. Změnu s neověřeným výsledkem neopakovat automaticky. Stará cookie se po povolení účtu neobnoví. |
+| API je nedostupné | Ověřit spojení a službu, pak zkusit znovu; výpadek neznamená potvrzené odhlášení. |
+| Zamítnutý přístup / nenalezený záznam | Ověřit typ účtu, roli a konkrétní tým/dítě. Znalost UUID ani nová registrace práva nepřidají. |
+| CHILD nelze aktivovat | Ověřit vlastní osobu/hráče a alespoň jednoho schváleného rodiče s povoleným STANDARD účtem. Osoba rodiče bez účtu nestačí. |
+| Rodič byl znovu povolen, dítě zůstalo zakázané | ADMIN znovu ověří podmínky a samostatně použije Aktivovat dětský účet. |
+| Nelze odebrat posledního správce | Nejprve zajistit jiný povolený STANDARD ADMIN s dokončenou osobou; neobcházet kontrolu ručním SQL. |
+| Konflikt formuláře | Načíst aktuální stav a změnu znovu posoudit. Heslo po chybě zadat znovu; neodesílá se automaticky. |
+| Hráč nemá účet ani rodiče | Sportovní evidenci vede ADMIN; povolenou soupisku čte přiřazený trenér. Nevytvářet fiktivní účty nebo doručení. |
 
-Technické problémy zapisujte do issue nového repozitáře s reprodukcí, verzí API a chybou. Nevkládejte hesla, `.env`, cookies, osobní údaje dětí ani databázové dumpy. Po implementaci a akceptaci se doplní skutečné obrazovky, provozní kontakty a produkční URL.
+Technické problémy zapisujte do issue nového repozitáře s reprodukcí, verzí API a chybou. Nevkládejte hesla, `.env`, cookies, osobní údaje dětí ani dumpy. Provozní kontakty a produkční URL se doplní po skutečném nasazení podle [postupu](deployment.md).

@@ -6,6 +6,7 @@ import type { Capability } from "@/api/types";
 import { useAuth } from "@/context/AuthContext";
 
 const links: { href: string; name: string; capability: Capability }[] = [
+  { href: "/admin/accounts", name: "Přístupové účty", capability: "MANAGE_ACCOUNTS" },
   { href: "/admin/sports", name: "Sporty", capability: "MANAGE_SPORTS" },
   { href: "/admin/seasons", name: "Sezóny", capability: "MANAGE_SEASONS" },
   { href: "/admin/teams", name: "Týmy a členství", capability: "MANAGE_TEAMS" },

@@ -6,9 +6,9 @@ export default function HomePage() {
     <>
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
-          <p className="eyebrow"><span className="status-dot" /> Ročníkový projekt · týmy a členství</p>
+          <p className="eyebrow"><span className="status-dot" /> Ročníkový projekt · klub a rodina</p>
           <h1 id="hero-title">Společný základ<br />pro váš <span>sportovní klub.</span></h1>
-          <p className="lead">Místo pro tým, který chce mít svůj klub pod kontrolou. Dostupné jsou účty, osobní údaje, správa sportů, sezón, týmů a hráčů i povolené týmové soupisky.</p>
+          <p className="lead">Místo pro tým, který chce mít svůj klub pod kontrolou. Dostupné jsou účty, osobní údaje, správa sportů, sezón, týmů a hráčů i povolené týmové soupisky. Rodiče mají přehled schválených dětí; děti vlastní omezený účet.</p>
           <div className="actions">
             <Link className="button" href="/register">Vytvořit účet <span aria-hidden="true">↗</span></Link>
             <Link className="button button-secondary" href="/login">Přihlásit se</Link>
@@ -16,7 +16,7 @@ export default function HomePage() {
           <p className="subtle">Nový účet vzniká jako USER/STANDARD. Po přihlášení doplníte vlastní osobní údaje.</p>
         </div>
         <aside className="hero-panel" aria-label="Stav technického základu">
-          <div className="panel-heading"><span className="eyebrow">Společný základ</span><span className="pill">Balíček P2</span></div>
+          <div className="panel-heading"><span className="eyebrow">Společný základ</span><span className="pill">Balíček P3</span></div>
           <div className="court" aria-hidden="true"><span className="court-circle" /><span className="court-line" /><span className="court-ball">●</span></div>
           <ApiStatus />
         </aside>
@@ -26,7 +26,7 @@ export default function HomePage() {
         <div className="feature-grid">
           <article className="feature-card"><span className="feature-number">01</span><h3>Účet a osobní údaje</h3><p>Registrace, přihlášení, doplnění vlastní osoby, obnovení session a odhlášení nad skutečným backendem.</p></article>
           <article className="feature-card"><span className="feature-number">02</span><h3>Týmy a soupisky</h3><p>Administrátor spravuje sporty, sezóny, hráče a trenérská přiřazení. Každý účet vidí pouze povolené týmové údaje.</p></article>
-          <article className="feature-card planned"><span className="pill">Plánováno</span><h3>Další klubové činnosti</h3><p>Rodičovské vazby, dětské přihlášení, události, výsledky, statistiky, příspěvky a komunikace jsou součástí navazujících etap.</p></article>
+          <article className="feature-card planned"><span className="pill">Plánováno</span><h3>Další klubové činnosti</h3><p>Události, výsledky, statistiky, příspěvky a komunikace jsou součástí navazujících etap.</p></article>
         </div>
       </section>
     </>

@@ -99,7 +99,7 @@ class IdentityAndClubSetupTests {
         assertThat(claim.statusCode()).as(claim.body()).isEqualTo(200);
         assertThat(json(claim).path("role").asText()).isEqualTo("ADMIN");
         assertThat(json(browser.get("/auth/me")).path("role").asText()).isEqualTo("ADMIN");
-        assertThat(json(browser.get("/me/context")).path("capabilities").toString()).isEqualTo("[\"MANAGE_CLUB\",\"MANAGE_SPORTS\",\"MANAGE_SEASONS\",\"MANAGE_TEAMS\",\"MANAGE_PLAYERS\",\"MANAGE_MEMBERSHIPS\"]");
+        assertThat(json(browser.get("/me/context")).path("capabilities").toString()).isEqualTo("[\"MANAGE_CLUB\",\"MANAGE_SPORTS\",\"MANAGE_SEASONS\",\"MANAGE_TEAMS\",\"MANAGE_PLAYERS\",\"MANAGE_MEMBERSHIPS\",\"MANAGE_ACCOUNTS\",\"MANAGE_GUARDIANS\"]");
         assertThat(json(browser.get("/club/setup-status")).path("available").asBoolean()).isFalse();
         assertError(browser.post("/club/setup", Map.of("token", TOKEN)), 409, "SETUP_ALREADY_COMPLETED");
         var second = account(true);
@@ -124,7 +124,9 @@ class IdentityAndClubSetupTests {
         var csrf = browser.csrf();
         List<HttpResponse<String>> responses = race(() -> browser.send("POST", "/me/person", mapper.writeValueAsString(personBody()), csrf),
                 () -> browser.send("POST", "/me/person", mapper.writeValueAsString(personBody()), csrf));
-        assertThat(responses.stream().map(HttpResponse::statusCode)).containsExactlyInAnyOrder(201, 409);
+        var statuses=responses.stream().map(HttpResponse::statusCode).toList();
+        assertThat(statuses).contains(201).allMatch(status->status==201 || status==409 || status==401);
+        assertThat(statuses.stream().filter(status->status==201).count()).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM persons", Long.class)).isEqualTo(1);
     }
 
@@ -165,7 +167,8 @@ class IdentityAndClubSetupTests {
         var browser = admin(); UUID id = userId(browser);
         assertThat(browser.get("/actuator/metrics").statusCode()).isEqualTo(200);
         jdbc.update("UPDATE users SET role='USER' WHERE id=?", id);
-        assertError(browser.get("/actuator/metrics"), 403, "FORBIDDEN");
+        assertError(browser.get("/actuator/metrics"), 401, "UNAUTHORIZED");
+        assertThat(browser.post("/auth/login",Map.of("username",browser.username,"password","test-password")).statusCode()).isEqualTo(200);
         assertError(browser.post("/sports", Map.of("code", "FOOTBALL", "name", "Fotbal")), 403, "FORBIDDEN");
         assertThat(json(browser.get("/auth/me")).path("role").asText()).isEqualTo("USER");
         jdbc.update("UPDATE users SET enabled=FALSE WHERE id=?", id);
@@ -175,7 +178,10 @@ class IdentityAndClubSetupTests {
 
     @Test void invalidChildAndDeletedAccountFailClosedAndFreshCsrfStillWorks() throws Exception {
         var browser = account(true); UUID id = userId(browser);
-        jdbc.update("UPDATE users SET account_type='CHILD' WHERE id=?", id);
+        UUID profile=UUID.randomUUID();
+        jdbc.update("UPDATE persons SET birth_date=DATE '2012-01-01' WHERE id=(SELECT person_id FROM users WHERE id=?)",id);
+        jdbc.update("INSERT INTO player_profiles(id,person_id) SELECT ?,person_id FROM users WHERE id=?",profile,id);
+        jdbc.update("UPDATE users SET account_type='CHILD',enabled=FALSE WHERE id=?", id);
         assertError(browser.get("/auth/me"), 401, "UNAUTHORIZED");
         assertError(browser.post("/auth/login", Map.of("username", browser.username, "password", "test-password")), 401, "UNAUTHORIZED");
         var disabled = account(true); UUID disabledId = userId(disabled);
@@ -192,6 +198,7 @@ class IdentityAndClubSetupTests {
     @Test void pendingAdministratorCannotBypassOnboarding() throws Exception {
         var browser = account(false); UUID id = userId(browser);
         jdbc.update("UPDATE users SET role='ADMIN' WHERE id=?", id);
+        assertThat(browser.post("/auth/login",Map.of("username",browser.username,"password","test-password")).statusCode()).isEqualTo(200);
         assertError(browser.get("/sports"), 403, "PROFILE_INCOMPLETE");
         assertError(browser.get("/actuator/metrics"), 403, "PROFILE_INCOMPLETE");
         assertThat(json(browser.get("/me/context")).path("capabilities").isEmpty()).isTrue();

@@ -1,6 +1,6 @@
 # Návrh databáze
 
-**Stav E0 + P1/P2:** V1/V2 se nemění; V3 přidává sedm tabulek pro sezóny/týmy/hráče/členství a guardian základ. Implementováno je 12 z cílových 38 tabulek; dalších 26 je návrh. Guardian_links zatím nemá API ani funkční rodičovské oprávnění, CHILD zůstává blokovaný do P3. P1/P2 jsou část E1, nikoli hotová aplikace. DBML/diagram nejsou důkaz provedené migrace nebo testu; výsledky jsou v [ověření](verification.md).
+**Stav E0 + P1–P3:** V1–V3 se nemění; V3 přidala sedm tabulek sezón/týmů/hráčů/členství a rodičovských vazeb, V4 přidává neveřejnou autorizační revizi a ochranné triggery. Počet zůstává 12 z cílových 38 tabulek; dalších 26 je návrh. P3 již poskytuje account/person-link, schválené rodiče, Moje děti a omezené CHILD sportovní čtení. Úplná akceptace E1 ani celý projekt nejsou uzavřené. DBML/diagram nejsou důkaz provedené migrace nebo testu; výsledky jsou v [ověření](verification.md).
 
 Úplný a jediný aktuální návrh tabulek a invariantů je v [databázovém modelu](database.md), jeho strojově čitelná podoba v [sport-club.dbml](sport-club.dbml) a přehled vztahů v [ER diagramu](ERD%20diagram.svg). Tento rozcestník nahrazuje dřívější paralelní návrh, aby implementace nevycházela ze dvou různých schémat.
 
@@ -17,13 +17,13 @@
 
 ## Hranice databáze a služeb
 
-PostgreSQL 16 používá UUID, přesné `numeric` pro peníze a desetinné statistiky, `date` pro splatnosti a `timestamptz` pro okamžiky. PK/FK, jedinečnost a lokální `CHECK` tvoří základ integrity. V3 má EXCLUDE s btree_gist pro obě členství a guard triggery hranic/archivu; ostatní popsané invarianty se doplní s dalšími doménami. Bezpečnostní a doménové podmínky ověřuje transakční Spring service také u přímého API požadavku; frontend je nenahrazuje.
+PostgreSQL 16 používá UUID, přesné `numeric` pro peníze a desetinné statistiky, `date` pro splatnosti a `timestamptz` pro okamžiky. PK/FK, jedinečnost a lokální `CHECK` tvoří základ integrity. V3 má EXCLUDE s btree_gist pro obě členství a guard triggery hranic/archivu, V4 guardian/user guardy a automatické zakázání dítěte bez rodiče; ostatní popsané invarianty se doplní s dalšími doménami. Bezpečnostní a doménové podmínky ověřuje transakční Spring service také u přímého API požadavku; frontend je nenahrazuje.
 
-Doménové operace dodržují společný zamykací postup z [modelu](database.md#integrita-a-souběžné-operace), znovu ověří aktuální oprávnění a ve stejné transakci zapíší audit i doručení notifikací. Historie se nemaže kaskádou. Označení enumů v DBML je logický číselník; konkrétní Flyway migrace musí zachovat kompatibilitu dosavadních dat.
+Doménové operace dodržují společný zamykací postup z [modelu](database.md#integrita-a-souběžné-operace), znovu ověří aktuální oprávnění a ve stejné transakci zapíší audit. Doručení notifikací se přidá s plánovanou schránkou. Historie se nemaže kaskádou. Označení enumů v DBML je logický číselník; konkrétní Flyway migrace musí zachovat kompatibilitu dosavadních dat.
 
 ## Implementační a migrační postup
 
-Nové Flyway soubory vznikají v `backend/src/main/resources/db/migration/` spolu s implementací služby, autorizačními a integračními testy. V1 ani již nasazené migrace se nepřepisují. V2 převádí původní pětici rolí na `USER/ADMIN`, zachovává UUID/hashe/časy a ukládá neveřejné legacy_role. Neúplné účty mají přechodně nullable person_id a vlastní onboarding bez vymyšlených osobních údajů. Existující ADMIN uzavírá setup. P2 přidává odvozené týmové vztahy; person-link a aktivace CHILD vyžadují P3. NOT NULL pro person_id přijde až po ověřeném backfillu v samostatné migraci.
+Nové Flyway soubory vznikají v `backend/src/main/resources/db/migration/` spolu s implementací služby, autorizačními a integračními testy. V1 ani již nasazené migrace se nepřepisují. V2 převádí původní pětici rolí na `USER/ADMIN`, zachovává UUID/hashe/časy a ukládá neveřejné legacy_role. Neúplné účty mají přechodně nullable person_id a vlastní onboarding bez vymyšlených osobních údajů. Existující ADMIN uzavírá setup. P2 přidává odvozené týmové vztahy; P3 přidává ověřený person-link, správu účtů/rodičů a samostatnou CHILD aktivaci. V4 při upgradu nejprve zakáže starší CHILD účty; nevytváří jim fiktivní osoby ani vazby. Neveřejný auth_revision odvolá starou session i po reaktivaci, není verzí pro optimistic locking ani polem API. Nové schválení nebo povolení rodiče dítě samo nezapne. Navržená migrace soutěžní konfigurace se posouvá na V5 a další čísla se potvrzují při implementaci. NOT NULL pro person_id přijde až po ověřeném backfillu v samostatné migraci.
 
 Každá etapa ověří prázdnou databázi i upgrade starší verze nad PostgreSQL Testcontainers. Hibernate zůstává `ddl-auto=validate`, bez automatického baseline. Vývojová demonstrační data ani známá hesla nepatří do produkční migrace. Zálohování a zkušební obnovu popisují [model](database.md#zálohování-a-obnova) a [nasazení](deployment.md).
 

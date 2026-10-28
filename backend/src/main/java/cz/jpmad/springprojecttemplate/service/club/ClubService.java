@@ -27,6 +27,7 @@ public class ClubService {
     public SetupStatusResponse status(UUID actorId) {
         var club = clubs.lockForRead();
         var user = accounts.requireComplete(actorId);
+        if(user.getAccountType()!=cz.jpmad.springprojecttemplate.model.user.enums.AccountType.STANDARD) throw new AccessDeniedException("Access denied");
         boolean available = !club.isSetupCompleted() && !users.existsByRole(Role.ADMIN) && user.getRole() != Role.ADMIN && tokenVerifier.isConfigured();
         return new SetupStatusResponse(club.isSetupCompleted(), available, club.getName());
     }
@@ -34,6 +35,7 @@ public class ClubService {
     public UserResponse setup(UUID actorId, String suppliedToken) {
         var club = clubs.lockForWrite();
         var user = accounts.requireComplete(actorId);
+        if(user.getAccountType()!=cz.jpmad.springprojecttemplate.model.user.enums.AccountType.STANDARD) throw new AccessDeniedException("Access denied");
         if (club.isSetupCompleted() || users.existsByRole(Role.ADMIN)) throw new ApiException(HttpStatus.CONFLICT, "SETUP_ALREADY_COMPLETED", "Správa klubu už byla nastavena.");
         if (!tokenVerifier.isConfigured()) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "SETUP_UNAVAILABLE", "Prvotní nastavení není povoleno.");
         if (!tokenVerifier.matches(suppliedToken)) throw new AccessDeniedException("Access denied");

@@ -20,7 +20,7 @@ class UserServiceTests {
         var encoder = new BCryptPasswordEncoder();
         when(repository.findByUsername("newuser")).thenReturn(Optional.empty());
         when(repository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        var result = new UserService(repository, encoder).register("newuser", "test-password");
+        var result = new UserService(repository, encoder, mock(CurrentAccountService.class)).register("newuser", "test-password");
         assertThat(result.getRole()).isEqualTo(Role.USER);
         assertThat(encoder.matches("test-password", result.getPasswordHash())).isTrue();
         assertThat(result.getPasswordHash()).doesNotContain("test-password");
@@ -30,7 +30,7 @@ class UserServiceTests {
     void duplicateUsernameCannotOverwriteExistingAccount() {
         var repository = mock(UserRepository.class);
         when(repository.findByUsername("existing")).thenReturn(Optional.of(new User()));
-        var service = new UserService(repository, new BCryptPasswordEncoder());
+        var service = new UserService(repository, new BCryptPasswordEncoder(), mock(CurrentAccountService.class));
         assertThatThrownBy(() -> service.register("existing", "test-password")).isInstanceOf(IllegalStateException.class);
         verify(repository, never()).save(any());
     }

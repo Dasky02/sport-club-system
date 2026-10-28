@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <main id="main" className="page-shell">{children}</main>
           <footer className="site-footer">
             <span>Sport Club System</span>
-            <span>Ročníkový projekt · Týmy a členství, P2</span>
+            <span>Ročníkový projekt · Správa sportovního klubu</span>
           </footer>
         </AuthProvider>
       </body>

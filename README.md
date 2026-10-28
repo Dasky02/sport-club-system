@@ -1,10 +1,10 @@
 # Informační systém pro správu sportovního klubu
 
-Samostatný týmový ročníkový projekt `sport-club-system`. **E0 a pracovní balíčky P1/P2 tvoří technický základ a část E1; E1 ani celá klubová aplikace nejsou dokončené.** Cílový rozsah odpovídá `zadani_sportovni_klub_v2.odt`; finální akceptace zahrnuje fotbal i basketbal v jedné aplikaci bez změny kódu.
+Samostatný týmový ročníkový projekt `sport-club-system`. **E0 a balíčky P1–P3 tvoří technický a členský základ E1; úplná akceptace E1 ani celá klubová aplikace nejsou uzavřené.** Cílový rozsah odpovídá `zadani_sportovni_klub_v2.odt`; finální akceptace zahrnuje fotbal i basketbal v jedné aplikaci bez změny kódu.
 
 Základ zachovává Spring REST API, UUID účty a BCrypt, session `JSESSIONID`, CSRF, info API s verzí z JAR, samostatný Next.js frontend, Docker a CI. P1 přidává Flyway V2, doplnění vlastní osoby, aktuální autorizační kontext, bezpečné jednorázové převzetí správy a administrátorský seznam, založení a úpravu sportů. Veřejná registrace vytváří `USER`/`STANDARD` bez klubových práv; neúplný účet nejdříve dokončí osobní údaje.
 
-P2 přidává V3, sezóny, vlastní i externí týmy, hráče bez účtů, trenérská přiřazení, intervalová členství, historii a oprávněné soupisky. ADMIN může spravovat osoby; účty a role jiných uživatelů zatím nespravuje. Rodičovské vazby a aktivace CHILD, události, výsledky, statistiky, příspěvky, komunikace a notifikace zůstávají **plánované**. Rozsah implementace popisuje [API kontrakt](docs/api-contract.md); skutečně provedené kontroly a jejich omezení uvádí [ověření](docs/verification.md).
+P2 přidává V3, sezóny, vlastní i externí týmy, hráče bez účtů, trenérská přiřazení, intervalová členství, historii a oprávněné soupisky. P3 přidává V4, administrátorskou správu účtů na ověřené osoby, person-link, role/typ/přístup, schválené rodičovské vazby, Moje děti a omezené CHILD přihlášení ke sportovním údajům. Události, výsledky, statistiky, příspěvky, komunikace a notifikace zůstávají **plánované**. Předběžný zákaz finančních cest pro CHILD není implementovaná finanční agenda. Rozsah implementace popisuje [API kontrakt](docs/api-contract.md); skutečně provedené kontroly a jejich omezení uvádí [ověření](docs/verification.md).
 
 ## Požadavky
 
@@ -43,7 +43,7 @@ cd backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-Java musí být verze 17 (`java -version`; při více instalacích nastavte `JAVA_HOME`). Na macOS např. `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`. Dev profil nepřidává žádné výchozí účty. Registraci, doplnění osoby a bezpečný setup projděte přes skutečné UI níže; obecné administrátorské přidělování rolí zatím není implementované.
+Java musí být verze 17 (`java -version`; při více instalacích nastavte `JAVA_HOME`). Na macOS např. `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`. Dev profil nepřidává žádné výchozí účty. Registraci, doplnění osoby a bezpečný setup projděte přes skutečné UI níže; další účty a role spravuje dokončený ADMIN v `/admin/accounts` po ověření identity. Posledního povoleného správce nelze odebrat.
 
 Frontend ve druhém terminálu:
 
@@ -56,7 +56,7 @@ npm run dev
 
 Otevřete [frontend](http://localhost:3000). [Verze API](http://localhost:8080/api/info/version), [health](http://localhost:8080/api/actuator/health) a [OpenAPI](http://localhost:8080/api/v3/api-docs) ověřují skutečný běžící backend. API prefix `/api` se přidává právě jednou. Databázové změny provádí Flyway; Hibernate pouze validuje schéma.
 
-## První průchod P1/P2
+## První průchod P1–P3
 
 1. Zaregistrujte se a přihlaste. Registrace sama nepřihlašuje ani nepřiděluje ADMIN.
 2. Na `/profile` doplňte skutečné jméno a příjmení, případně datum narození a kontakty. PENDING účet nemá klubová oprávnění. Onboarding vytváří jen vlastní osobu; nepřipojuje cizí existující profil podle jména či ID.
@@ -64,9 +64,11 @@ Otevřete [frontend](http://localhost:3000). [Verze API](http://localhost:8080/a
 4. Jako ADMIN otevřete `/admin/sports`, založte například fotbal a basketbal a upravte jejich název či aktivní stav. Kód sportu je stabilní a sport se nemaže. Běžný USER tuto správu nemá.
 5. V `/admin/seasons` vytvořte sezónu, v `/admin/teams` týmy a jejich sezónní záznamy. Každý tým vyberte právě k jednomu sportu. Externí soupeř nemá interní členství.
 6. V `/admin/players` založte hráče s datem narození; účet ani rodič nejsou povinné. Přes **Spravovat členství** přidejte hráče a vlastní účet jako trenéra. Interval je `[od,do)`, prázdný konec znamená konec sezóny. Překryv stejné dvojice je zakázaný.
-7. V `/teams` otevřete soupisku a historii hráče. ADMIN vidí všechny týmy; ostatní jen aktuální vlastní nebo trenérské členství. Přestup ukončí starý interval a přidá nový, archivace zachová čtení a blokuje změny. Dashboard a navigace používají skutečný `/me/context`; finanční ani rodičovské schopnosti zatím nevznikají.
+7. V `/teams` otevřete soupisku a historii hráče. ADMIN vidí všechny týmy; ostatní jen aktuální vlastní či trenérské členství nebo členství schváleného dítěte. CHILD má pouze vlastní aktuální týmy. Přestup ukončí starý interval a přidá nový, archivace zachová čtení a blokuje změny. Dashboard a navigace používají skutečný `/me/context`; finanční schopnosti zatím nevznikají.
+8. Potřebujete-li rodiče nebo hráčské přihlášení, v `/admin/accounts` založte účet na ověřené osobě. Osobu rodiče lze vytvořit samostatně bez hráčského profilu. Neúplný již registrovaný účet propojte přes **Propojit ověřenou osobu**; použitou identitu nelze přepojit. První heslo předejte soukromě, u dítěte ověřenému rodiči.
+9. U hráče otevřete **Rodiče a zástupci**, vyberte ověřenou osobu a odůvodněte schválení vazby. Rodič se STANDARD účtem uvidí `/my-children`. Nový CHILD účet vzniká zakázaný a vyžaduje vlastní hráčský profil a nejméně jednoho schváleného rodiče s povoleným STANDARD účtem; teprve pak použijte **Aktivovat dětský účet**. Role, typ, přístup, person-link a rodičovské změny vyžadují důvod bez tajných či osobních údajů. Zákaz účtu, změna typu a odvolání vazby mají potvrzení dopadu.
 
-Při upgradu původní databáze se V1 nepřepisuje: V2 zachová UUID, BCrypt hashe a časy. ADMIN zůstává ADMIN, staré COACH/PLAYER/PARENT se převádějí na USER bez vymyšlených vztahů. Účty mohou mít dočasně `person_id = NULL`, po přihlášení dokončí vlastní onboarding. Existující ADMIN při migraci uzavře prvotní setup a po doplnění osoby může spravovat sporty. CHILD je i v P2 zakázaný pro přístup a není dostupný jeho vznik ani aktivace. Podrobný postup a plán čtyř klubových rolí obsahuje [příručka](docs/user-guide.md).
+Při upgradu původní databáze se V1 nepřepisuje: V2 zachová UUID, BCrypt hashe a časy. ADMIN zůstává ADMIN, staré COACH/PLAYER/PARENT se převádějí na USER bez vymyšlených vztahů. Účty mohou mít dočasně `person_id = NULL`, po přihlášení dokončí vlastní onboarding. Existující ADMIN při migraci uzavře prvotní setup a po doplnění osoby může spravovat sporty. V4 při upgradu zakáže všechny dřívější CHILD účty bez domýšlení osoby nebo rodiče. Současný ADMIN po ověření může doplnit vazby a provést samostatnou aktivaci. Ztráta posledního platného aktivního rodiče dítě zakáže a odvolá jeho přihlášení; opětovné schválení rodiče či jeho povolení dítě samo neaktivuje. Stará cookie se neobnoví ani po reaktivaci účtu. Podrobný postup a plán čtyř klubových rolí obsahuje [příručka](docs/user-guide.md).
 
 ## Celá sestava v Dockeru
 

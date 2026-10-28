@@ -42,7 +42,7 @@ Testy vytvářejí jedinečné smyšlené účty; spouštějte je nad vývojový
 - **GitHub CI spuštěno při publikaci** do [Dasky02/sport-club-system](https://github.com/Dasky02/sport-club-system); aktuální stav jednotlivých commitů je v [Actions](https://github.com/Dasky02/sport-club-system/actions/workflows/ci.yml). Místní kontroly odpovídající CI a syntaktický actionlint prošly. **Release a GHCR dosud nespouštěny**: publikování zdrojového repozitáře nevydalo release ani nenahrálo images.
 - **Veřejné produkční HTTPS/ACME nasazení s vlastní doménou neproběhlo.** HTTPS je konfigurované a lokálně ověřené, nikoli živě veřejně nasazené. Produkční DNS/porty/certifikát a cookies tým ověří dle [deployment](deployment.md).
 - **Záloha/obnova nebyla provozně provedena.** Postup je dokumentovaný, finální akceptace musí ověřit obnovitelnost skutečné zálohy.
-- **P1/P2 dodávají identitu a týmový základ, podrobné datované výsledky jsou níže.** Rodičovské vazby a aktivace CHILD, události/účast, soutěže, statistiky, finance, notifikace, messaging a výsledková historie stále vyžadují navazující implementaci. Samotné založení sportů není akceptace jejich výsledkových scénářů. Přehled v [requirements](requirements.md) a [roadmap](roadmap.md).
+- **P1–P3 dodávají identitu, týmový a rodičovský základ, podrobné datované výsledky jsou níže.** Události/účast, soutěže, statistiky, finance, notifikace, messaging a výsledková historie stále vyžadují navazující implementaci. Samotné založení sportů není akceptace jejich výsledkových scénářů. Přehled v [requirements](requirements.md) a [roadmap](roadmap.md).
 - Statický credential check je kontrola známých patternů a souborů, ne záruka neexistence libovolné tajné hodnoty. Před veřejným publikováním byl finální Git obsah zkontrolovaný; žádné skutečné env hodnoty se do repozitáře nepřevzaly. Kontrola se opakuje v CI.
 
 Nový [veřejný repozitář](https://github.com/Dasky02/sport-club-system) byl vytvořen a nahrán po kontrole obsahu na výslovnou žádost uživatele. GitHub uvádí PUBLIC, isFork=false a výchozí větev main; historie začíná vlastním root commitem. Původní privátní template nebyl cílem žádné write operace.
@@ -123,3 +123,40 @@ E2E_SETUP_PROJECT=mobile npm run test:e2e -- auth.spec.ts roster.spec.ts --proje
 Pro jiné porty nastavte E2E_BASE_URL/E2E_API_URL; frontend build musí mít odpovídající NEXT_PUBLIC_API_URL. Token nikdy do veřejné proměnné/URL nebo příkazu s jeho skutečnou hodnotou. `roster.spec.ts` a `club-setup.spec.ts` nepouštějte se setup tokenem nad stejnou DB současně: oba vyžadují nedokončený klub. Bez tokenu se tyto opt-in scénáře přeskočí; obyčejné auth testy běží dál.
 
 **Neprovedeno pro P2:** GitHub CI nové P2 větve, nové Docker image buildy, nové HTTPS/ACME ověření, veřejné nasazení, provozní restore a nový audit závislostí. P1 CI výsledek není CI důkaz P2. Historie výsledků/statistik, rodičovský průchod a CHILD akceptace čekají na navazující implementaci; samotný DB základ tyto požadavky nesplňuje.
+
+
+## Dokončení P3 a sloučení P1 — 28. 10. 2026
+
+Na výslovnou žádost uživatele byl [PR #23](https://github.com/Dasky02/sport-club-system/pull/23) sloučen do main merge commitem `d7add37`. Jeho tři CI kontroly byly úspěšné a následný [běh nad main](https://github.com/Dasky02/sport-club-system/actions/runs/40588664240) také skončil úspěšně. Navazující větev `feat/guardians-and-child-accounts` zachovává P2 `cf4f6a7` a doplňuje P3; nové předání proto zahrnuje P2/P3 nad sloučeným P1.
+
+P3 skutečně dodává správu účtů na ověřených osobách, person-link neúplného účtu, role/typ/přístup/aktivaci s odůvodněním, guardian grant/revoke, Moje děti a omezené CHILD přihlášení se sportovním čtením. Rozšiřuje R02, T10, U06/U12 a přístupové A04/A16/A20/A23–A27 v rozsahu existujících funkcí. Příspěvky, notifikace, události, výsledky a komunikace stále nejsou implementované; jejich deny testy pro dítě nejsou funkční akceptací těchto domén.
+
+| Kontrola | Skutečný výsledek |
+| --- | --- |
+| Backend Java 17, Maven verify | **54/54 PASS**, 0 failures/errors/skipped. Oproti P2 devět nových skutečných HTTP/PostgreSQL scénářů, čtyři unit testy child policy a bezpečné obnovy vlastní session a jeden upgrade V3→V4. Zachované P1/P2 regrese. Po aktualizaci textových resources znovu package se skipTests; všech devět resources v JAR porovnáno byte-for-byte. |
+| Migrace V3→V4 | Zachována UUID, osoby, BCrypt, setup, sporty, tým a členství. Unsupported legacy CHILD je zakázán bez vymyšlené osoby. V4 přidává auth_revision/guardy, stále 12 tabulek. Ověřena trvalá změna revize po odvolání a reaktivaci, regrant/povolení rodiče dítě samo nezapnou; self guardian a přepojení identity DB odmítá. V1/V2/V3 beze změny. |
+| Oprávnění a transakce | Dva rodiče/dvě děti, scoped seznamy i counts a cizí detail, parent history vs current team. CHILD bez profilu/aktivního rodiče nelze aktivovat; žádný ADMIN/coach/guardian a žádné samoobslužné změny osoby. Poslední enabled STANDARD COMPLETE ADMIN chráněn v souběhu. Ověřen rollback při selhání auditu. |
+| Sessions a finanční hranice | Nepoužitá stará cookie po disable→re-enable/aktivaci zůstává odvolaná. Aktuální revision se kontroluje i po čekání na zámek. Vlastní onboarding/setup přijmou jen očekávanou revizi +1. Child allowlist odmítá přímé fee/payment/export/notifikační cesty včetně count/read; finanční služby ještě neexistují. |
+| Frontend | **85/85 PASS**, lint/typecheck a produkční build PASS s testovací API URL 18080. Reálné clients/formuláře, reason a potvrzení změn, vymazání prvního hesla ihned při odeslání i chybě, ochrana citlivých requests, vlastní CHILD read, parent profil/history, pozdní session/zdrojové odpovědi. Žádné nové runtime závislosti. |
+| Browser P3 desktop | Chromium + skutečný JAR/Next production standalone/PostgreSQL16: **3/3 PASS**, žádný skip. Auth/session/výpadek a úplný P1/P3 průchod. |
+| Browser P3 mobil | Pixel7, druhá čistá izolovaná DB se znovu provedenými V1–V4: **3/3 PASS**, žádný skip. Celkem P3 **6/6**. |
+| Browser P2 regrese | Po finálním buildu další čistá DB, desktop auth + celý původní P2 průchod obou sportů, offline hráčů, trenéra, přestupu, historie a archivu: **3/3 PASS**. Celkem v dokončení P3 **9/9 browserových scénářů**. |
+| Vizuální a návrhová kontrola | Prohlédnuty desktopové i mobilní Moje děti a CHILD soupiska, absence horizontálního přetékání ověřena. Aktualizované DBML parse/export PASS: 38 cílových tabulek a 76 vztahů; ERD obnoven lokálně a users/auth_revision vizuálně zkontrolován. |
+| Konfigurace a veřejný obsah | Všechny tři Compose konfigurace PASS, kontrola veřejného obsahu a git diff --check PASS. Lokální Markdown odkazy a JSON příklady validní; V1–V3 byte-for-byte shodné s P2. |
+
+P3 browserový průchod vytvoří dva rodiče a dva hráče se samostatnými účty přes skutečné formuláře, odmítne předčasnou CHILD aktivaci, schválí tři vazby, aktivuje účty a ověří oddělené parent/child scopes i přímé zákazy. Odvolání jedné ze dvou vazeb přístup dítěte zachová; poslední účet zakáže. Nové schválení vyžaduje ruční aktivaci, původní cookie nepoužitá během zákazu se neobnoví. Zákaz posledního rodiče zakáže oba potomky; jeho nové povolení děti neaktivuje. Ověřena ochrana posledního ADMIN.
+
+Testy čekají na dokončení vlastní onboarding/setup POST odpovědi před ověřením session, stejně jako skutečné UI. Souběžný starý request v jiné kartě během bezpečnostní změny může skončit 401; session se neobnovuje převzetím pozdější správní revize. Původní P1 očekávání souběžného onboardingu nyní připouští bezpečné 401 i konflikt, stále vznikne právě jedna osoba.
+
+Reprodukce: nad vlastní novou testovací DB nastavte soukromý backend CLUB_SETUP_TOKEN a shodný E2E_SETUP_TOKEN pouze pro testovací proces. Vyberte právě jeden setup scénář nad každou DB:
+
+```sh
+# frontend/; odpovídající E2E_BASE_URL/E2E_API_URL a frontend build
+E2E_SETUP_PROJECT=desktop npm run test:e2e -- auth.spec.ts guardians.spec.ts --project=desktop
+# druhá nová izolovaná DB a restart backendu
+E2E_SETUP_PROJECT=mobile npm run test:e2e -- auth.spec.ts guardians.spec.ts --project=mobile
+```
+
+`club-setup.spec.ts`, `roster.spec.ts` a `guardians.spec.ts` každý přebírá první správu klubu. Nepouštějte je se setup tokenem zároveň nad stejnou DB; zvolte jeden. Regresi rosteru spusťte nad další čistou testovací DB. Běžná klubová data se kvůli testům nemažou. Lokální běhy používaly výhradně vlastní zahoditelný container bez projektových volumes (15432/18080/13000); soukromá konfigurace není verzovaná a po ověření je odstraněna.
+
+**Neprovedeno pro P3:** nové celé Docker image buildy, nové HTTPS/ACME nasazení, provozní restore nebo nový audit závislostí. Ověřen byl JAR + produkční Next standalone; Compose jako konfigurace. Tento lokální záznam vzniká před publikací PR; aktuální GitHub CI posuzujte podle konkrétního head commitu v PR/Actions. Budoucí domény P4–P9 nejsou tímto dokončené.

@@ -45,11 +45,16 @@ describe("P2 přístup a formuláře", () => {
     await screen.findByRole("heading", { name: "Nejprve doplňte osobní údaje." });
     expect(mock.history.get.map(r => r.url)).not.toContain("/team-seasons");
   });
-  it("CHILD zůstává zablokovaný a soupiska se nenačítá", async () => {
-    identity = { ...completeUser, accountType: "CHILD" }; context = { ...userContext, accountType: "CHILD" };
+  it("aktivní CHILD načte vlastní povolenou soupisku bez historického filtru a správy", async () => {
+    identity = { ...completeUser, accountType: "CHILD" }; context = { ...userContext, accountType: "CHILD", ownPlayerId: "own-player", teamContexts: [{ teamSeasonId: "team", capabilities: ["READ_TEAM"] }] };
+    mock.onGet("/team-seasons/team").reply(200, team);
+    mock.onGet("/team-seasons/team/players").reply(200, pageOf([{ playerId: "other-player", membershipId: "membership", firstName: "Spoluhráč", lastName: "Testovací", validFrom: season.startsOn, validTo: null }]));
     view(<TeamRoster id="team" />);
-    await screen.findByRole("heading", { name: "Klubové funkce nejsou pro tento účet dostupné." });
-    expect(mock.history.get.map(r => r.url)).not.toContain("/team-seasons/team/players");
+    await screen.findByRole("heading", { name: team.displayName });
+    expect(screen.queryByLabelText("Soupiska ke dni")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Spravovat členství" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Profil a členství" })).not.toBeInTheDocument();
+    expect(mock.history.get.find(r => r.url === "/team-seasons/team/players")?.params).toEqual({ page: 0, size: 20, on: undefined });
   });
   it("vytvoří sezónu a archivuje ji teprve po potvrzení, bez DELETE", async () => {
     let seasons: typeof season[] = [];

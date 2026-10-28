@@ -18,7 +18,8 @@ export function SiteHeader() {
         <Link href="/" aria-current={pathname === "/" ? "page" : undefined}>Úvod</Link>
         <Link href="/dashboard" aria-current={pathname === "/dashboard" ? "page" : undefined}>Můj účet</Link>
         {signedIn && <Link href="/profile" aria-current={pathname === "/profile" ? "page" : undefined}>Osobní údaje</Link>}
-        {signedIn && user.profileState === "COMPLETE" && user.accountType === "STANDARD" && (context?.teamContexts.length || context?.capabilities.includes("MANAGE_TEAMS")) ? <Link href="/teams" aria-current={pathname.startsWith("/teams") ? "page" : undefined}>Týmy</Link> : null}
+        {signedIn && user.profileState === "COMPLETE" && (context?.teamContexts.length || context?.capabilities.includes("MANAGE_TEAMS")) ? <Link href="/teams" aria-current={pathname.startsWith("/teams") ? "page" : undefined}>Týmy</Link> : null}
+        {signedIn && user.profileState === "COMPLETE" && user.accountType === "STANDARD" && !!context?.children.length && <Link href="/my-children" aria-current={pathname.startsWith("/my-children") ? "page" : undefined}>Moje děti</Link>}
         {signedIn && user.profileState === "COMPLETE" && context?.capabilities.includes("MANAGE_CLUB") && <Link href="/admin" aria-current={pathname === "/admin" ? "page" : undefined}>Administrace</Link>}
         {signedIn && user.profileState === "COMPLETE" && user.accountType === "STANDARD" && (context?.capabilities.includes("MANAGE_SPORTS")
           ? <Link href="/admin/sports" aria-current={pathname === "/admin/sports" ? "page" : undefined}>Správa sportů</Link>
