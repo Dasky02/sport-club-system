@@ -81,6 +81,7 @@ function OnboardingForm() {
 type PersonState = { state: "loading" } | { state: "ready"; person: PersonResponse } | { state: "error"; error: unknown };
 
 function ExistingPerson() {
+  const { user } = useAuth();
   const [resource, setResource] = useState<PersonState>({ state: "loading" });
   const [revision, setRevision] = useState(0);
   useEffect(() => {
@@ -101,8 +102,8 @@ function ExistingPerson() {
       <div><dt>Datum narození</dt><dd>{resource.person.birthDate ? new Intl.DateTimeFormat("cs-CZ", { timeZone: "Europe/Prague" }).format(new Date(`${resource.person.birthDate}T12:00:00Z`)) : "Neuvedeno"}</dd></div>
       <div><dt>E-mail</dt><dd>{resource.person.email ?? "Neuvedeno"}</dd></div>
       <div><dt>Telefon</dt><dd>{resource.person.phone ?? "Neuvedeno"}</dd></div>
-    </dl><p className="subtle">Údaje jsou načtené ze serveru. Jejich změna není součástí této etapy.</p></article>}
-    <div className="actions"><Link className="button button-secondary" href="/dashboard">Zpět na můj účet</Link><Link className="text-button" href="/setup">Nastavení klubu</Link></div>
+    </dl><p className="subtle">Údaje jsou načtené ze serveru. Opravu osobních údajů provádí administrátor po ověření.</p></article>}
+    <div className="actions"><Link className="button button-secondary" href="/dashboard">Zpět na můj účet</Link>{user?.accountType === "STANDARD" && <Link className="text-button" href="/setup">Nastavení klubu</Link>}</div>
   </section>;
 }
 

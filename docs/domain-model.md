@@ -1,6 +1,6 @@
 # Doménový model sportovního klubu
 
-Tento dokument popisuje cílovou doménu podle `zadani_sportovni_klub_v2.odt` a upřesnění zadání. **Implementovaný P1 je pouze první část E1:** k E0 účtům/auth/info přidává vlastní osobu, aktuální kontext, klubový setup, audit a správu sportů. Týmy, hráči, rodiče/CHILD aktivace, účast, soutěže, finance, notifikace a komunikace níže zůstávají **plánované**. Samotný doménový návrh není důkaz dostupného API nebo provedené akceptace; skutečný rozsah a výsledky uvádějí [kontrakt](api-contract.md) a [ověření](verification.md).
+Tento dokument popisuje cílovou doménu podle `zadani_sportovni_klub_v2.odt` a upřesnění zadání. **Implementované P1–P3 dodávají členský základ E1:** identitu, setup, sporty, sezóny, týmy, offline hráče, intervalová členství, účty na ověřené osoby, schválené rodiče, omezený CHILD login a scoped soupisky/historii. Události/účast, soutěže, výsledky/statistiky, finance, notifikace a komunikace níže jsou **plánované**. Úplnou akceptaci E1 ani projekt tento dokument neuzavírá. Přesný rozsah a provedené důkazy určují [kontrakt](api-contract.md) a [ověření](verification.md).
 
 ## Architektura a hranice
 
@@ -10,25 +10,30 @@ Nové doménové balíčky budou postupně členěny na `member`, `team`, `event
 
 ## Účty a lidé
 
-`Person` uchovává jméno, datum narození a nezbytné kontakty. P1 dovoluje dokončit a přečíst vlastní osobu; obecný CRUD cizích osob není implementovaný. `User` má po V2 dočasně nullable `person_id`: staré i nově registrované účty bez osoby mají PENDING onboarding, nikoli odvozené osobní údaje z loginu. V cílové doméně je účet osoby volitelný a `PlayerProfile` její samostatný profil; společnou osobu budou sdílet přes `person_id`. Hráče i rodiče půjde evidovat bez přihlášení. Trenérská oprávnění vzniknou přes časové `coach_team_memberships` v P2, nikoli samotným dokončením osoby.
+`Person` uchovává jméno, datum narození a nezbytné kontakty. P1 dovoluje dokončit a přečíst vlastní osobu; P2 přidává ADMIN vytvoření a editaci osob a hráčů. `User` má po V2 dočasně nullable UNIQUE `person_id`: staré i nově registrované účty bez osoby mají PENDING onboarding, nikoli odvozené osobní údaje z loginu. Osoba může mít nejvýše jeden účet a jeden samostatný `PlayerProfile`. Hráč má datum narození, nepotřebuje účet ani rodiče. Použitou identitu nelze přesunout na jiného člověka.
 
-P1 používá systémovou roli `USER/ADMIN` a typ účtu `STANDARD/CHILD`. V2 zachová ADMIN a staré COACH/PLAYER/PARENT převede na USER; `legacy_role` je pouze neveřejná migrační evidence, nezakládá oprávnění. Současný P1 kontext má nejvýše MANAGE_CLUB/MANAGE_SPORTS pro dokončeného ADMIN, jinak žádné klubové schopnosti. Kombinovatelné trenérské, hráčské a rodičovské kontexty se doplní podle platných vztahů v P2/P3. Veřejná registrace nepřijímá privilegovanou roli, typ účtu, tým ani rodičovskou vazbu jako oprávnění.
+P3 umožňuje ADMIN vytvořit USER účet na ověřenou evidovanou osobu bez účtu nebo jednorázově připojit takovou osobu k dosud nepropojenému účtu. Person-link zachová UUID, heslo a časy, nepřepisuje již vyplněnou osobu a neslučuje jména. První heslo zpracuje BCrypt, aplikace je nevrací ani nepersistuje ve frontendu; správce je soukromě předá oprávněné osobě, u dítěte ověřenému rodiči. Správa účtů není pozvánkový nebo resetovací mechanismus.
 
-`GuardianLink` propojuje osobu rodiče nebo zákonného zástupce s hráčským profilem dítěte. Schvaluje ji administrátor; samotná shoda příjmení ani znalost ID nestačí. Pro přístup rodiče se propojí `users.person_id` s osobou schváleného zástupce. Rodič může mít více dětí a dítě více zástupců. Při odvolání vazby další požadavky přístup ztratí. Rodič vidí schválené dítě, jeho sportovní údaje a příspěvky, ale nezapisuje výsledky ani nominace.
+Systémová role je `USER/ADMIN`, typ účtu `STANDARD/CHILD`. V2 zachovala ADMIN a staré COACH/PLAYER/PARENT převedla na USER; neveřejné `legacy_role` nezakládá oprávnění. P3 context má osm správních schopností pro dokončeného STANDARD ADMIN, ownPlayerId přes stejnou osobu, READ_CHILD pro schválené děti a READ_TEAM pro dnešní vlastní/trenérské/dětské vazby. CHILD dostává pouze vlastní hráčské týmy a žádné správní ani rodičovské schopnosti. Veřejná registrace zůstává USER/STANDARD a nepřijímá privilegovanou roli, typ účtu, osobu, tým nebo rodičovskou vazbu jako oprávnění.
 
-Plán P3: dítě může mít vlastní účet `CHILD`, vždy na svém hráčském profilu a pod alespoň jedním schváleným rodičem se standardním aktivním účtem. Dítě nedědí roli, session ani heslo rodiče. Smí používat pouze vlastní povolené sportovní funkce, například publikované akce, dostupnost, nominace a vlastní statistiky. **Nemá přístup k předpisům, platbám, finančním součtům, exportům ani finančním notifikacím, ani když se týkají jeho vlastní osoby.** Nesmí být administrátorem, trenérem ani zástupcem a nesmí si samo měnit typ účtu nebo vazby. Po ztrátě posledního platného rodiče se jeho přístup pozastaví a session zneplatní do vyřešení administrátorem. Úplné podmínky a negativní scénáře stanoví [autorizace](authorization.md).
+`GuardianLink` propojuje osobu rodiče nebo zákonného zástupce s hráčským profilem dítěte. Správce vazbu schvaluje a odvolává s důvodem; samotná shoda příjmení ani znalost ID nestačí. Vztah k sobě samému, rodičovský cyklus a CHILD jako zástupce se odmítají. Pro přístup rodiče se propojí účet STANDARD s osobou schváleného zástupce. Rodič může mít více dětí a dítě více zástupců. Osoba rodiče může být bez účtu, ale sama neposkytuje přístup do aplikace ani nestačí pro aktivaci dítěte. Odvolaná vazba zůstává evidovaná; opětovné schválení stejné dvojice a její změny zachová audit.
 
-P1 dosud všechny CHILD blokuje a nevytváří ani neaktivuje dětské účty. Cílové podmínky předchozího odstavce jsou povinný rozsah P3.
+V P3 rodič čte Moje děti, základní profil a celou vlastní členskou historii schváleného dítěte. Týmovou soupisku čte jen tehdy, je-li jeho dítě členem právě dnes. Dítě nepotřebuje vlastní login pro rodičovské čtení. Příspěvky, dostupnost a komunikace pro rodiče se dodají až s příslušnými doménami.
 
-Plán P2: samostatný trenér může být jediným uživatelem: standardní účet se správou instalace (`ADMIN`) si přiřadí trenérský vztah k vlastnímu sezónnímu týmu. Nepotřebuje druhého administrátora, rodičovské účty ani účty hráčů. Hráčské profily a sportovní historii vede sám. Rodičovská vazba je povinná až pro aktivaci dětského přihlášení; dítě evidované bez účtu ji nevyžaduje. Trenér bez systémového `ADMIN` spravuje pouze svěřené týmy a nezíská tím přístup k financím svěřenců nebo cizím soukromým zprávám.
+Dítě má vlastní účet `CHILD` na své osobě a hráčském profilu, vždy s rolí USER. Nově vzniká zakázaný. Samostatná aktivace ověří nejméně jednoho schváleného rodiče s povoleným STANDARD účtem. P3 umožňuje pouze vlastní osobu ke čtení, vlastní základní hráčský profil a historii a aktuální vlastní týmové soupisky. Dostupnost, nominace, statistiky a komunikace jsou budoucí rozšíření, nikoli současné obrazovky. Dítě nedědí rodičovskou roli, session ani heslo. **Nemá finance včetně vlastních částek, detailů, součtů, exportů a finančních notifikací či jejich počtů.** Allowlist odmítá takové přímé cesty již nyní; funkční finance a schránka přijdou později. CHILD nemůže být ADMIN, trenérem ani zástupcem.
 
+Odebrání jedné z více kvalifikovaných rodičovských vazeb ponechá dítě aktivní. Ztráta poslední nebo zákaz posledního aktivního rodiče nastaví CHILD `enabled=false` a zvýší neveřejný `auth_revision`. Session před změnou zůstane neplatná i po reaktivaci, včetně cookie nepoužité během zákazu. Regrant ani opětovné povolení rodiče dítě automaticky neaktivují; ADMIN znovu ověří podmínky a dítě výslovně aktivuje. Sportovní profil, osoba a členství zůstávají.
+
+Změny role, typu, povolení a person-link jsou odůvodněné správní operace. Posledního povoleného dokončeného STANDARD ADMIN nelze demotovat, zakázat nebo změnit na CHILD. Převod STANDARD na CHILD odmítne ADMIN, zachované trenérské členství i neodvolané rodičovské vazby a vyžaduje vlastního hráče; výsledek zůstává zakázaný. Převod zpět na STANDARD také ponechá účet zakázaný do samostatného povolení. Dítě tato pole samo nemění. Důvod má nejvýše 500 znaků a nesmí obsahovat tajné nebo osobní údaje. Podmínky stanoví [autorizace](authorization.md).
+
+Samostatný trenér již v P2 může být jediným uživatelem: dokončený STANDARD ADMIN si přiřadí trenérství vlastního sezónního týmu a vede offline hráče bez jejich účtů a rodičů. Rodičovská vazba je povinná až pro aktivaci dětského přihlášení. Běžnému trenérovi samotné přiřazení nedává správu rolí/rodičů ani budoucí finance nebo cizí soukromé zprávy.
 ## Sporty, sezóny a členství
 
 `Sport` obsahuje stabilní kód, název a aktivní stav. P1 umí vytvořit a upravit sport, přičemž jeho kód je neměnný. Při navazující akceptaci se založí databázové konfigurace `FOOTBALL` / fotbal a `BASKETBALL` / basketbal. Přidání sportu a jeho statistik či pravidel nevyžaduje změnu Java/TypeScript kódu. Jedna instalace eviduje oba sporty současně; druhý sport nevyžaduje další aplikaci. Každý tým má právě jeden povinný sport. Soutěže, formáty zápasů a definice statistik odkazují na odpovídající sport. Historicky použitý sport se deaktivuje, nemaže.
 
 `Season` má název, začátek, konec a příznak archivace. `Team` patří jednomu sportu. `TeamSeason` zařazuje tým do sezóny. `PlayerTeamMembership` a `CoachTeamMembership` zachovávají interval členství a případný konec. Přestup vytváří nové členství a ukončuje původní; nesmí přepsat staré záznamy ani statistiky. Členství je platné v intervalu `[valid_from, valid_to)`, neuvedené `valid_to` znamená konec příslušné sezóny, nikoli trvalé oprávnění do dalších sezón. Zobrazení historie respektuje období, v němž měl uživatel odpovídající oprávnění; aktuální přiřazení trenéra nedává právo k historii jiných týmů.
 
-## Události: tři různé informace o účasti
+## Události: tři různé informace o účasti — plán P5
 
 `Event` je obecný: `TRAINING`, `MATCH`, `OTHER`. Má název, popis, začátek/konec s časovou zónou, místo, stav, sezónu a jeden či více přiřazených týmů. Zápas rozšiřuje základní událost o soutěž a obě strany utkání. Trénink ani jiná událost nepotřebují sportově specifická pole.
 
@@ -40,7 +45,7 @@ Plán P2: samostatný trenér může být jediným uživatelem: standardní úč
 
 Týmová příslušnost hráče se ověřuje k času události, trenérovo oprávnění také k okamžiku zápisu. Dostupnost má uzávěrku; výjimečnou opravu může provést administrátor s odůvodněním a auditem. Zrušení události zachová historii a informuje adresáty. Posun času se provede verzovaně a umožní znovu potvrdit dostupnost. Změny po archivaci sezóny provádí jen admin s odůvodněním a auditem.
 
-## Soutěže, výsledky a pořadí
+## Soutěže, výsledky a pořadí — plán P4/P6
 
 `Competition` patří sportu, `CompetitionSeason` propojuje soutěž, sezónu a verzi pravidel. `CompetitionEntry` přihlašuje sezónní tým do ročníku stejné sezóny a sportu. Externí soupeř je také `Team`, odlišený od klubového týmu; nemá klubovou soupisku ani účet. `TeamSeason.display_name` uchovává historický název. Obě strany utkání musejí patřit stejnému sportu; soutěžní zápas odkazuje na dva různé účastníky téže soutěže/sezóny.
 
@@ -65,7 +70,7 @@ Výpočet tabulky:
 
 Tabulka není ručně editovaný počet bodů. Případná cache je pouze odvozená a označená verzí výsledků a pravidel; není samostatným zdrojem pravdy. Oprava/anulování výsledku zneplatní cache, přepočítá tabulku i statistiky. Použitý formát a pravidla ročníku jsou po prvním použití neměnné. Jiná pravidla vyžadují nový formát nebo ročník, původní výpočet zůstane reprodukovatelný z uložených pravidel a revizí. Archivovaná sezóna je běžně pouze pro čtení.
 
-## Administrátorsky definované statistiky
+## Administrátorsky definované statistiky — plán P6
 
 `StatisticDefinition` je stabilní identita statistiky. `StatisticDefinitionVersion` uchovává název, datový typ, jednotku, meze hodnot, způsob agregace, čas vytvoření a autora. Sport patří stabilní identitě definice. Admin definuje například fotbalové góly/asistence nebo basketbalové body/doskoky v UI; frontend renderuje formulář podle definice. Žádná z těchto statistik není pevný sloupec `PlayerProfile`.
 
@@ -80,7 +85,7 @@ UI i server validují; rozhodující je server. Chybějící hodnota není nula.
 
 Statistika zápasu patří hráči, konkrétní verzi definice a revizi výsledku. Hráč musí být skutečně účastníkem daného zápasu; zápis před uzavřením docházky je návrh. Potvrzením výsledku se potvrzují kompatibilní statistiky. Změna výsledku musí nové statistiky explicitně převzít či opravit. Neslučitelné typy, jednotky nebo agregace vyžadují novou definici; původní definice se deaktivuje. Přejmenování vytváří novou verzi, ale zachová identitu. Historické hodnoty se nepřeinterpretují podle současné konfigurace; kombinování verzí je povolené jen při shodném typu, jednotce a agregaci.
 
-## Členské příspěvky
+## Členské příspěvky — plán P7
 
 `FeeAssessment` předepisuje příspěvek konkrétní osobě a sezóně, včetně částky, měny a splatnosti. Není závislý na existenci přihlašovacího účtu. `FeePayment` je administrátorem ručně zaznamenaná skutečná úhrada jednoho předpisu. Více záznamů umožní částečné úhrady; platební brána není součástí projektu.
 
@@ -88,7 +93,7 @@ Stav se odvozuje ze součtu nestornovaných úhrad: nesplaceno, částečně zap
 
 Standardní účet člena čte vlastní příspěvky; rodič se schválenou vazbou čte příspěvky dítěte. Dětský účet je nečte. Pouhé trenérské přiřazení neumožňuje přístup k financím hráčů. Samostatný trenér se správou instalace eviduje příspěvky jako administrátor.
 
-## Notifikace a vnitrosystémová komunikace
+## Notifikace a vnitrosystémová komunikace — plán P5/P7/P8
 
 Notifikace jsou automatické systémové zprávy: nová událost, změna/zrušení, zveřejnění/změna nominace a blížící se/překročená splatnost. Příspěvky oznamují příslušnému standardnímu účtu člena a oprávněným zástupcům **i administrátorům**. Dětský účet finanční doručení nikdy nedostává; za dítě je přijímá ověřený rodič se standardním účtem. Pokud oprávněný člen ani jeho zástupce nemá účet, admin vidí nedoručitelnou výzvu; systém nesmí označit upozornění členovi za doručené. V režimu jediného trenéra je evidence bez účtů platná, vznik dětského přihlášení ale vyžaduje rodiče. V počátečním návrhu jde o schránku v aplikaci; email lze doplnit později a není náhradou povinné schránky.
 

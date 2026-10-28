@@ -1,6 +1,6 @@
-# REST kontrakt: implementované P1 a navazující plán
+# REST kontrakt: implementované P1–P3 a navazující plán
 
-**E0 + P1:** autentizace, vlastní onboarding, kontext, bezpečný setup a správa sportů níže mají implementaci. P1 je pouze část E1. Všechny týmové, rodičovské/CHILD aktivační, sportovní výsledkové, finanční a komunikační endpointy v dalších sekcích jsou **plánované**. Přítomnost endpointu ani testu nedokládá úspěšný běh; výsledky jsou v [ověření](verification.md). Cílové schéma určují [DBML](sport-club.dbml) a [databáze](database.md).
+**E0 + P1–P3:** identita/setup/sporty, ADMIN osoby/sezóny/týmy/hráči/členství, účty a rodičovské vazby, scoped soupisky/historie a omezené dětské přihlášení mají implementaci. Události, soutěže, výsledky, finance, notifikace a komunikace jsou stále plánované. [Ověření](verification.md) zaznamenává provedené běhy; [DBML](sport-club.dbml) popisuje celý cílový model.
 
 ## Implementované adresování a autentizace
 
@@ -11,7 +11,7 @@ Všechny cesty jsou relativní k `/api`: `/auth/me` znamená `/api/auth/me`. Bro
 | `GET /auth/csrf` | 200 `{token,headerName,parameterName}`; session CSRF, hlavička X-CSRF-TOKEN |
 | `POST /auth/register` | `{username,password}` → 201 UserResponse; USER/STANDARD/PENDING, bez přihlášení a dalších vazeb |
 | `POST /auth/login` | `{username,password}` → 200 UserResponse, změna session ID |
-| `GET /auth/me` | 200 UserResponse aktuálního povoleného STANDARD účtu; jinak 401 |
+| `GET /auth/me` | 200 UserResponse aktuálního povoleného STANDARD nebo platného CHILD účtu; jinak 401 |
 | `POST /auth/logout` | 200 bez těla; invalidace session a odstranění cookie |
 | `GET /info/version` | 200 `{version}` |
 | `GET /info/release-notes`, `/info/terms-of-service`, `/info/privacy-policy` | 200 `{content}` |
@@ -23,7 +23,7 @@ Username má 3–50 znaků, heslo 6–72 znaků a současně nejvýše 72 UTF-8 
 {"id":"00000000-0000-0000-0000-000000000001","username":"clen","role":"USER","accountType":"STANDARD","personId":null,"profileState":"PENDING","createdAt":"2026-10-27T10:00:00Z"}
 ```
 
-`profileState` je odvozené PENDING/COMPLETE, nikoli DB role. V2 převádí staré role COACH/PLAYER/PARENT na USER a zachovává ADMIN. UUID, BCrypt a časy zůstávají. Dočasně nullable users.person_id dovolí onboarding bez vymyšlených jmen; NOT NULL přijde po pozdějším ověřeném backfillu. Registrace zatím nevytváří Person, účet ji doplní následným vlastním POSTem. P1 CHILD i deaktivovaný účet odmítá; jejich vytvoření/aktivace nemá API.
+`profileState` je odvozené PENDING/COMPLETE, nikoli DB role. V2 převádí staré role COACH/PLAYER/PARENT na USER a zachovává ADMIN. UUID, BCrypt a časy zůstávají. Dočasně nullable users.person_id dovolí onboarding bez vymyšlených jmen; NOT NULL přijde po pozdějším ověřeném backfillu. Registrace zatím nevytváří Person, účet ji doplní následným vlastním POSTem. P3 připouští pouze povolený CHILD s vlastním hráčským profilem a aktivním schváleným STANDARD rodičem. Deaktivovaný nebo neplatný dětský účet odmítá při loginu i každém požadavku.
 
 ## Implementované P1: vlastní osoba, kontext, setup a sporty
 
@@ -38,15 +38,15 @@ Username má 3–50 znaků, heslo 6–72 znaků a současně nejvýše 72 UTF-8 
 | `POST /sports` | ADMIN `{code,name}` → 201 SportResponse; active=true |
 | `PATCH /sports/{id}` | ADMIN `{name?,active?}` → 200 SportResponse; alespoň jedna změna, kód se nemění |
 
-PersonResponse je `{id,firstName,lastName,birthDate,email,phone}`; poslední tři pole jsou explicitně nullable. Jméno a příjmení jsou povinné, každé nejvýše 100 znaků; birthDate není v budoucnosti, email je volitelný platný text nejvýše 254 znaků a telefon nejvýše 40. P1 nemá následnou editaci osoby ani administrátorské propojování již existující osoby. Opakovaný POST po propojení vrací 409 PROFILE_ALREADY_LINKED.
+PersonResponse je `{id,firstName,lastName,birthDate,email,phone}`; poslední tři pole jsou explicitně nullable. Jméno a příjmení jsou povinné, každé nejvýše 100 znaků; birthDate není v budoucnosti, email je volitelný platný text nejvýše 254 znaků a telefon nejvýše 40. Self-service nemá následnou editaci; P2 přidává ADMIN PUT /persons/{id}. P3 ADMIN ověřeně propojí dosud neúplný účet s existující osobou, nikdy nepřepojí použitou identitu. Opakovaný POST po propojení vrací 409 PROFILE_ALREADY_LINKED.
 
-AccountContext aktuálně neobsahuje žádné budoucí finance, tým nebo dítě. Pro dokončeného ADMIN:
+AccountContext neobsahuje budoucí finanční ani událostní oprávnění. P3 vrací ADMIN osm správních schopností; teamContexts vzniká pouze ze skutečných aktuálních vazeb. Příklad ADMIN bez členství nebo vlastních dětí:
 
 ```json
-{"accountType":"STANDARD","capabilities":["MANAGE_CLUB","MANAGE_SPORTS"],"ownPlayerId":null,"teamContexts":[],"children":[]}
+{"accountType":"STANDARD","capabilities":["MANAGE_CLUB","MANAGE_SPORTS","MANAGE_SEASONS","MANAGE_TEAMS","MANAGE_PLAYERS","MANAGE_MEMBERSHIPS","MANAGE_ACCOUNTS","MANAGE_GUARDIANS"],"ownPlayerId":null,"teamContexts":[],"children":[]}
 ```
 
-STANDARD/USER a PENDING dostávají capabilities `[]`; dokončení osoby samo klubová práva nezaloží. Server znovu čte aktuální roli, typ a enabled i při staré session. Žádné klientem zaslané capabilities nemají autorizační význam.
+STANDARD/USER a PENDING dostávají globální capabilities `[]`; dokončení osoby samo klubová práva nezaloží. Server znovu čte aktuální roli, typ a enabled i při staré session. Žádné klientem zaslané capabilities nemají autorizační význam.
 
 `CLUB_SETUP_TOKEN` patří pouze backendu. Prázdná konfigurace znamená available=false a POST 503 SETUP_UNAVAILABLE; chybný token 403 FORBIDDEN, dokončený setup 409 SETUP_ALREADY_COMPLETED. Token jde jen v těle CSRF chráněného POSTu, nikoli v URL, odpovědi, logu, auditu či NEXT_PUBLIC proměnné. V2 s existujícím ADMIN uzavře setup už při migraci; před správou sportů si i tento účet doplní osobu. Nový platný setup atomicky změní roli, dokončení klubu a audit; nesmí uspět dvakrát.
 
@@ -56,7 +56,7 @@ SportResponse je `{id,code,name,active}`. Kód odpovídá `[A-Z][A-Z0-9_]{0,39}`
 {"items":[],"page":0,"size":20,"totalElements":"0","totalPages":0}
 ```
 
-P1 neposkytuje `/persons`, `/players`, `/admin/users`, změnu role jiného účtu, person-link, týmy, rodiče, CHILD aktivaci, finance ani jejich capabilities. Tyto cesty níže jsou plánované.
+P2/P3 níže rozšiřují osoby, hráče, týmy, účty a rodičovské vazby. Finanční a ostatní navazující API ještě neexistují.
 
 ## Společná pravidla a rozšíření navazujících kontraktů
 
@@ -93,7 +93,7 @@ P1 zachovává `timestamp`, `code`, `message` a volitelné `details: string` a p
 }
 ```
 
-P1 používá PROFILE_ALREADY_LINKED, DUPLICATE_RESOURCE a SETUP_ALREADY_COMPLETED; ostatní doménové 409 kódy v tabulce jsou plánované. Obecný CONFLICT zůstává pro kompatibilitu a neznamená vždy obsazené jméno. P1 dále vrací 403 PROFILE_INCOMPLETE a 503 SETUP_UNAVAILABLE pro vypnutý setup.
+P1–P3 používají PROFILE_ALREADY_LINKED, DUPLICATE_RESOURCE, SETUP_ALREADY_COMPLETED, MEMBERSHIP_OVERLAP, CONFIGURATION_LOCKED, STATE_CONFLICT, CHILD_ACTIVATION_CONFLICT a LAST_ADMIN_REQUIRED; ostatní doménové 409 kódy v tabulce jsou plánované. Obecný CONFLICT zůstává pro kompatibilitu a neznamená vždy obsazené jméno. P1 dále vrací 403 PROFILE_INCOMPLETE a 503 SETUP_UNAVAILABLE pro vypnutý setup.
 
 | HTTP 409 code | Význam / reakce UI |
 | --- | --- |
@@ -107,36 +107,74 @@ P1 používá PROFILE_ALREADY_LINKED, DUPLICATE_RESOURCE a SETUP_ALREADY_COMPLET
 | `PAYMENT_ID_CONFLICT` | Stejné UUID úhrady použité pro jiný obchodní payload |
 | `PAYMENT_EXCEEDS_BALANCE` | Úhrada by překročila aktuální zůstatek |
 | `SETUP_ALREADY_COMPLETED` | Jednorázové převzetí správy již proběhlo |
+| `LAST_ADMIN_REQUIRED` | Změna by odstranila posledního enabled STANDARD ADMIN s dokončenou osobou |
 | `CHILD_ACTIVATION_CONFLICT`, `STATE_CONFLICT` | Chybí aktuální podmínka aktivace, případně jiný nepovolený přechod stavu |
 
 Neplatný vstup/typ/rozsah → 400 `VALIDATION_ERROR` nebo `BAD_REQUEST`; nepovolená činnost → 403 `FORBIDDEN`. Kódy konfliktů ani jejich detaily nesmějí předcházet kontrole přístupu.
 
-## Plánované rozšíření kontextu P2–P9
+## Implementovaný kontext P3
 
-Po dodání skutečných vazeb se do AccountContext přidají povolené teamContexts, vlastní player a děti. Teprve s finančním API vznikne například READ_OWN_FEES; **P1 tuto schopnost nevrací**. STANDARD rodič bude mít jen schválené děti jako `{playerId,displayName,capabilities}`, trenér jen skutečně přiřazené týmy. Konkrétní DTO se dodá s backendem a frontendem příslušné etapy.
+Dokončený STANDARD ADMIN má osm správních capabilities výše. USER a CHILD nemají globální správní schopnosti. ownPlayerId se odvozuje ze stejné osoby i bez aktuálního členství. teamContexts je union dnešního vlastního hráčského, trenérského a schváleného dětského členství bez duplicit, každý `{teamSeasonId,capabilities:["READ_TEAM"]}`. ADMIN není automaticky trenérem všech týmů.
 
-Plný CHILD kontext patří P3: jen vlastní povolené sportovní/komunikační schopnosti, žádné ADMIN/trenérství/rodičovství nebo finance. Dítě se aktivuje až s vlastním hráčským profilem a schváleným enabled STANDARD rodičem; ztráta poslední vazby zablokuje účet a invaliduje session. V P1 jsou všechny CHILD účty odmítnuté. Cílové NOT NULL pro person_id vyžaduje pozdější samostatnou migraci; nynější registrace a vlastní POST/onboarding se nemění potichu na jiný kontrakt.
+STANDARD children obsahuje jen vlastní neodvolané vazby `{playerId,displayName,capabilities:["READ_CHILD"]}`, nezávisle na účtu nebo aktuálním členství dítěte. CHILD má children `[]` a týmové kontexty pouze vlastního hráče; nikdy trenérské nebo rodičovské. PENDING má stále null/[] a jen povolený vlastní onboarding. READ_OWN_FEES, event/message capabilities ještě neexistují. Nullable users.person_id zůstává přechodně kvůli skutečným neúplným účtům; NOT NULL vyžaduje pozdější ověřený backfill a samostatnou migraci.
 
-## Plánované dokončení E1: P2/P3 členové, účty a týmy
+## Implementované P2: sezóny, týmy, osoby a členství
 
-Všechny následující řádky jsou **k implementaci**, nikoli záruka dostupnosti. ADMIN spravuje klub; ostatní čtou pouze povolený rozsah. Autorství, systémové časy a audit doplňuje server.
+Čtení vyžaduje dokončený enabled účet s povoleným rozsahem; P3 povoluje CHILD pouze vlastní sportovní čtení. Všechny změny a soukromé seznamy vyžadují STANDARD ADMIN. Žádné DELETE. PageResponse je vždy `{items,page,size,totalElements:string,totalPages:number}`, page od 0, size 20, max 100. Seznamy mají stabilní řazení a stejně omezené counts jako items.
 
-| UI | Plánované API a oprávnění |
+| Metoda/cesta | Payload, výsledek a hranice |
 | --- | --- |
-| `/admin/people`, `/admin/players` | `/persons`, `/players`; ADMIN vytvoří Person a případně player_profile, hráč vyžaduje birthDate; bez povinného účtu či rodiče |
-| `/admin/accounts` | `POST /admin/users {personId,username,password,accountType}` na ověřenou existující Person bez účtu; vzniká USER, CHILD enabled=false |
-| Propojení starého neúplného účtu | ADMIN `POST /admin/users/{userId}/person-link {personId}`; pouze účet s personId=null a ověřená existující Person bez účtu, atomicky pod zámkem a s auditem; zachová UUID účtu |
-| Správa účtu | `PATCH /admin/users/{userId}/role`, `/account-type`, `/enabled`; `POST /admin/users/{userId}/activate` pro kontrolovanou CHILD aktivaci |
-| `/admin/seasons`, `/admin/teams` | ADMIN CRUD `/seasons`, `/teams`, `/team-seasons`; správa sportů už je vymezená v P1 výše; např. team DTO `{sportId,name,isClubTeam}`, sezónní tým `{teamId,seasonId,displayName}` |
-| `/teams`, `/teams/[teamSeasonId]` | Scoped `GET /team-seasons`, `GET /team-seasons/{id}/players`; ADMIN spravuje `/team-seasons/{id}/player-memberships` a `/coach-memberships` |
-| `/my-children`, `/my-children/[playerId]` | STANDARD `GET /me/children`, `GET /me/children/{playerId}`; pouze schválené děti, žádný libovolný guardianId filtr |
-| Rodičovská vazba | ADMIN `PUT /players/{playerId}/guardians/{guardianPersonId}`, `POST .../revoke`; identita je složený PK, žádné vymyšlené guardianLinkId |
+| ADMIN GET/POST `/seasons`; PATCH `/seasons/{id}` | POST `{name,startsOn,endsOn}`, PATCH změněná pole; response `{id,name,startsOn,endsOn,archived}`. Název 1–100 unikátní, interval platný. Použité hranice se nemění. |
+| ADMIN POST `/seasons/{id}/archive` | `{}` → 200 SeasonResponse, opakování bezpečně zachová archivaci. Archivovaná sezóna nepovoluje běžné změny. |
+| ADMIN GET/POST `/teams`; PATCH `/teams/{id}` | GET filtr sportId; POST `{sportId,name,isClubTeam}`, PATCH změněná pole. Response navíc id/sportName. Nový sport musí být aktivní, název 1–120; po prvním TeamSeason sport/typ neměnné. Základní rename nemění sezónní displayName. |
+| GET `/team-seasons?seasonId&sportId`; GET `/team-seasons/{id}` | ADMIN všechny, ostatní pouze dnešní vlastní/trenérské vztahy nebo členství schválených dětí k přesnému team_season. Bez vztahu seznam 403; cizí detail 404. |
+| ADMIN POST `/team-seasons`; PATCH `/team-seasons/{id}` | POST `{teamId,seasonId,displayName}` → 201, PATCH `{displayName}` → 200. Jedinečná dvojice, otevřená sezóna a aktivní sport; identity neměnné. |
+| GET `/team-seasons/{id}/players?on=YYYY-MM-DD` | Minimální roster `{playerId,firstName,lastName,membershipId,validFrom,validTo}`. Žádné personId, kontakty či datum narození ani pro ADMIN. on výchozí dnešek Europe/Prague, jiné datum jen ADMIN. |
+| ADMIN GET/POST `/persons`; GET/PUT `/persons/{id}` | P1 PersonRequest/Response. PUT nahrazuje všechna osobní pole; datum narození nelze vymazat u osoby s hráčem. Identity se nepřepojují. |
+| ADMIN GET/POST `/players` | Response seznamu/vytvoření `{id,personId,firstName,lastName,birthDate}`. POST právě jedna varianta `{personId}` nebo `{person:{firstName,lastName,birthDate,email?,phone?}}`; druhá atomicky založí osobu i hráče. DOB povinné, nebudoucí; jedna osoba nejvýše jeden profil. Žádný povinný účet nebo rodič. |
+| GET `/players/{id}` | Pouze `{id,firstName,lastName}`. ADMIN, vlastní profil přes osobu, schválený STANDARD rodič nebo aktuální trenér stejného aktuálního hráčského týmu; ostatní 404. |
+| GET `/players/{id}/memberships` | Page `{membershipId,teamSeasonId,displayName,seasonName,sportName,validFrom,validTo}`. ADMIN/vlastní hráč/schválený rodič celá oprávněná hráčova historie; trenér jen jeho aktuálně svěřené team_seasons. |
+| ADMIN GET/POST `/team-seasons/{id}/player-memberships` | POST `{playerId,validFrom,validTo}` → 201 `{id,teamSeasonId,playerId,firstName,lastName,validFrom,validTo}`; GET stránka stejných DTO. |
+| ADMIN GET/POST `/team-seasons/{id}/coach-memberships` | POST `{coachUserId,validFrom,validTo}` → 201 `{id,teamSeasonId,coachUserId,username,firstName,lastName,validFrom,validTo}`; GET stránka. Trenér musí být enabled STANDARD s osobou; ADMIN může vybrat sebe. |
+| ADMIN PATCH `/player-memberships/{id}`, `/coach-memberships/{id}` | Úplný interval `{validFrom,validTo}` včetně explicitního null konce; dvojice a ID se nemění. |
+| ADMIN GET `/admin/coach-candidates` | Page `{id,username,firstName,lastName}` jen způsobilých účtů, žádné heslo nebo správa rolí. |
 
-Self-person onboarding nepřijímá cizí personId, roli, typ účtu, hráčské členství ani rodičovskou vazbu a neslučuje osoby podle jména/emailu. Existující Person propojuje pouze ADMIN po ověření; použitou identitu nelze přesunout na jiného člověka. `person-link` nesmí přepsat nenulové personId ani obejít podmínky CHILD; zkontroluje souběžné propojení, aktuální stav účtu a zapíše audit bez kopií osobních údajů. U osob je email volitelný a není jedinečný.
+TeamSeasonResponse je `{id,teamId,seasonId,sportId,sportName,teamName,displayName,isClubTeam,seasonName,startsOn,endsOn,archived}`. Vlastní i externí týmy sdílejí API, soupeř však nemá interní členství. Intervaly jsou `[validFrom,validTo)`, NULL končí sezónou. Musí celé ležet v sezóně, stejná dvojice se nesmí překrývat; sousední intervaly a souběh v jiném týmu jsou dovolené. Archivace uchová read při existujícím vztahu a zamkne změny. Žádné automatické událostní přestupy ještě neexistují: P5 doplní transakční kontrolu tehdy vznikajících účastí.
 
-Při administrátorském založení účtu předá správce heslo bezpečně mimo aplikaci oprávněné osobě; heslo není v URL, odpovědi, auditu ani logu. Neexistuje invite/reset-token tabulka, proto se neslibuje pozvánkový mechanismus nebo automatický e-mail. CHILD aktivace ověří vlastní hráčský profil a nejméně jednu neodvolanou schválenou vazbu na enabled STANDARD účet rodiče; dítě a rodič mají oddělené session.
+Členství PATCH je výslovná výjimka z partial PATCH: oba datumové klíče jsou povinné, aby vymazání konce bylo záměrné. Seasons/teams partial PATCH rozlišuje absent a explicitní null; null se odmítne a mění se pouze zaslaná pole. Tabulky P2 nemají optimistic version; souběh řeší klubový zámek, stav a DB constraints. Všechna data/oprávnění jedné operace používají stejný kalendářní den.
 
-Členství posílá `{playerId|coachUserId,validFrom,validTo}`; interval je `[validFrom,validTo)`, null konec znamená konec sezóny. Jeden ADMIN si může přiřadit sebe jako trenéra. Přestup zachová historii a transakčně vyřeší neplatné budoucí účasti.
+Frontend `/admin`, `/admin/seasons`, `/admin/teams`, `/admin/players` a `/admin/teams/[teamSeasonId]` spravuje skutečná data; `/teams`, `/teams/[teamSeasonId]` a `/players/[playerId]` mají pouze povolené čtení. NonADMIN historie soupisek starých team_seasons není P2 oprávnění; vlastní členská historie zůstává přístupná. Rozšíření o historické výsledkové pohledy přijde s P5/P6.
+
+## Implementované P3: účty, rodiče a CHILD
+
+Všechny cesty v této tabulce kromě GET `/me/children` a GET `/me/children/{playerId}` vyžadují aktuální STANDARD ADMIN s dokončenou osobou; každý zápis je CSRF chráněný. AccountResponse je `{id,username,role,accountType,enabled,personId,profileState,firstName,lastName,createdAt}`. PersonId a jméno/příjmení mohou být null u starého neúplného účtu. Hash, heslo, legacyRole a authRevision se nikdy nevracejí.
+
+| Metoda/cesta | Payload, výsledek a podmínky |
+| --- | --- |
+| GET `/admin/users`, GET `/admin/users/{id}` | Page AccountResponse nebo detail; žádná hesla ani libovolné přepínání cílové osoby |
+| POST `/admin/users` | `{personId,username,password,accountType}` → 201 AccountResponse. Existující ověřená osoba bez účtu, username 3–50, heslo 6–72 znaků a nejvýše 72 UTF-8 bajtů. Vždy USER; STANDARD enabled=true, CHILD enabled=false s vlastním hráčským profilem. |
+| POST `/admin/users/{id}/person-link` | `{personId,reason}` → 200 AccountResponse. Jen dosud personId=null a osoba bez jiného účtu; zachová UUID, hash a createdAt. Žádné automatické matching jmen nebo přepojení existující identity. |
+| PATCH `/admin/users/{id}/role` | `{role,reason}` → 200; ADMIN jen STANDARD, jeho správní činnosti vyžadují dokončenou osobu; CHILD vždy USER |
+| PATCH `/admin/users/{id}/account-type` | `{accountType,reason}` → 200. STANDARD→CHILD vyžaduje vlastní hráče/DOB a žádné ADMIN, žádné historické trenérství ani aktivní vazby jako zástupce; výsledek je disabled. CHILD→STANDARD také zůstane disabled do výslovného povolení. |
+| PATCH `/admin/users/{id}/enabled` | `{enabled,reason}` → 200. CHILD enabled=true se zde odmítá; použije se activate. Deaktivace posledního rodiče automaticky zakáže závislé CHILD. |
+| POST `/admin/users/{id}/activate` | `{reason}` → 200. Jen CHILD s vlastním hráčem a alespoň jednou neodvolanou vazbou na enabled STANDARD rodičovský účet; jinak 409 CHILD_ACTIVATION_CONFLICT |
+| GET `/players/{playerId}/guardians` | Page GuardianResponse včetně odvolaných vazeb |
+| PUT `/players/{playerId}/guardians/{guardianPersonId}` | `{reason}` → 200 GuardianResponse. Výslovné ověření správcem. Již aktivní grant zachová první čas, regrant odvolané vazby aktualizuje grantedBy/grantedAt a vyčistí revokedAt. |
+| POST `/players/{playerId}/guardians/{guardianPersonId}/revoke` | `{reason}` → 200 GuardianResponse. Opakování zachová první revokedAt; audit složeného klíče. Poslední kvalifikovaný rodič zakáže CHILD a odvolá dosavadní sessions. |
+| GET `/me/children` | Jen dokončený STANDARD: Page ChildResponse přes person session, bez vazeb prázdná stránka 200. ADMIN zde nemá automaticky všechny děti. CHILD 403. |
+| GET `/me/children/{playerId}` | ChildResponse jen vlastní schválené dítě, cizí 404; žádný klientský guardianId scope |
+
+Reason je u person-link, změn role/typu/přístupu, aktivace a guardian grant/revoke povinné neprázdné odůvodnění 1–500 znaků, ukládané do soukromého auditu; nevkládají se do něj hesla ani osobní údaje. GuardianResponse je `{guardianPersonId,playerId,firstName,lastName,grantedBy,grantedAt,revokedAt}`, bez vymyšleného guardianLinkId. ChildResponse je pouze `{playerId,displayName,firstName,lastName}`, bez data narození, kontaktů nebo finančních souhrnů.
+
+Zástupcem může být evidovaná osoba bez účtu, její vazba však nestačí k přístupu ani CHILD aktivaci. Nesmí jít o osobu dítěte samotného, CHILD účet nebo cyklický řetězec rodičovských vazeb. Rodičovské a trenérské vazby se z CHILD nikdy neodvozují ani při chybném uloženém vztahu. Parent čte vlastní schválený základní profil a celou členskou historii; tým/soupisku jen při dnešním členství dítěte v přesném team_season. Stejný SQL scope omezuje counts. Žádný obecný DELETE, reset hesla ani pozvánkový mechanismus není implementovaný.
+
+Posledního enabled STANDARD COMPLETE ADMIN nelze demotovat, zakázat ani konvertovat (409 LAST_ADMIN_REQUIRED). V4 přidává neveřejné users.auth_revision a bezpečnostní guardy bez nové tabulky; V1–V3 se nemění. Původní unsupported CHILD řádky jsou při upgradu zakázány bez vytváření falešných osob/vztahů. Bezpečnostní změna nebo automatické zablokování dítěte zvýší revizi; session se při dalším requestu porovná s původním login snapshotem. Stará cookie zůstane neplatná i po reaktivaci. Vlastní P1 onboarding/setup výslovně obnoví jen očekávanou právě vzniklou revizi; nepřevezmou pozdější souběžnou správní změnu.
+
+Child login a každý další request ověří enabled, USER/CHILD, vlastní hráče a aktuálně aktivního rodiče. Ztráta jedné z více kvalifikovaných vazeb dítě neblokuje; ztráta poslední ano. Regrant ani opětovné povolení rodiče dítě automaticky nezapnou: vždy je nutná samostatná ADMIN aktivace. Sportovní profil, členství a historie se nemažou. První heslo se předává soukromě mimo veřejný projekt; server jej nevrací a frontend jej maže při odeslání i po chybě, bez storage/URL.
+
+CHILD allowlist dovoluje jen implementované vlastní a scoped sportovní GET (auth/me, CSRF, me/person, me/context, team-seasons/detail/roster, players/detail/memberships), veřejné info/health/dokumentaci a auth operace. Ostatní metody/cesty jsou 403: změna osoby, setup, správní API, děti a zejména všechny fee/payment/export/notifikační cesty včetně count/read. Toto je předběžná finanční bezpečnostní hranice, **nikoli implementace financí nebo notifikací**. Budoucí sportovní zápisy a schránka vyžadují rozšíření allowlistu a odpovídající policy/testy v příslušném balíčku.
+
+Frontend `/admin/accounts`, `/admin/players/[playerId]/guardians`, `/my-children` a `/my-children/[playerId]` používá skutečné API. Dětská navigace nabízí vlastní profil/sportovní čtení; osobní údaje jsou pouze ke čtení, datum narození a role se samoobslužně nemění. Finance ani rodičovské/správní stránky nenabízí.
 
 ## E2 — události, účast a notifikace
 

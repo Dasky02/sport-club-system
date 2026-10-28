@@ -23,6 +23,7 @@ public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CurrentAccountService currentAccounts;
 
     /**
      * Načte uživatele podle username pro autentizaci.
@@ -34,10 +35,7 @@ public class UserService implements UserDetailsService {
     public UserDetails loadUserByUsername(final String username) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        if (!user.isEnabled() || user.getAccountType() != cz.jpmad.springprojecttemplate.model.user.enums.AccountType.STANDARD) {
-            throw new org.springframework.security.authentication.BadCredentialsException("Bad credentials");
-        }
-        return user;
+        return currentAccounts.requireUsable(user.getId());
     }
 
     /**

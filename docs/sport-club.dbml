@@ -128,13 +128,14 @@ Table users {
   role user_role [not null, default: 'USER']
   account_type account_type [not null, default: 'STANDARD']
   enabled boolean [not null, default: true]
+  auth_revision bigint [not null, default: 0, note: 'Neveřejná revize odvolání sessions; není optimistic wire version.']
   created_at timestamptz [not null]
   updated_at timestamptz [not null]
   checks {
     `updated_at >= created_at`
     `account_type <> 'CHILD' OR role = 'USER'`
   }
-  Note: 'Přihlašovací účet s rolí USER nebo ADMIN a typem STANDARD/CHILD. STANDARD může kombinovat administraci, trenérské přiřazení, vlastní profil i rodičovství. CHILD nesmí být ADMIN ani získat trenérskou či rodičovskou schopnost; globální COACH/PLAYER/PARENT role se nepřidávají. USER bez vazeb nemá přístup k týmovým datům. Přihlašovací pole odpovídají skeletonu; převod jeho rolí vyžaduje novou migraci. V1 používá varchar s CHECK, zde je role logický enum. CHILD založí server s enabled=false a administrátor aktivuje až po ověření vlastního player_profile se stejným person_id a nejméně jedné schválené neodvolané vazby na osobu s enabled STANDARD účtem. Account_type ani enabled nelze eskalovat selfservice. Po ztrátě poslední takové vazby či deaktivaci posledního rodiče backend ve stejné transakci nastaví enabled=false dítěte a invaliduje sessions; nový přístup vždy kontroluje enabled, vlastní profil a aktuální rodičovskou podmínku autoritativně. CHILD má zákaz všech finančních dat, API, exportů, součtů a FEE notifikací i pro vlastní příspěvky. Evidovaný hráč bez účtu rodiče nevyžaduje.'
+  Note: 'Přihlašovací účet s rolí USER nebo ADMIN a typem STANDARD/CHILD. STANDARD může kombinovat administraci, trenérské přiřazení, vlastní profil i rodičovství. CHILD nesmí být ADMIN ani získat trenérskou či rodičovskou schopnost; globální COACH/PLAYER/PARENT role se nepřidávají. USER bez vazeb nemá přístup k týmovým datům. Přihlašovací pole odpovídají skeletonu; převod jeho rolí vyžaduje novou migraci. V1 používá varchar s CHECK, zde je role logický enum. CHILD založí server s enabled=false a administrátor aktivuje až po ověření vlastního player_profile se stejným person_id a nejméně jedné schválené neodvolané vazby na osobu s enabled STANDARD účtem. Account_type ani enabled nelze eskalovat selfservice. Po ztrátě poslední takové vazby či deaktivaci posledního rodiče backend ve stejné transakci nastaví enabled=false dítěte a invaliduje sessions; nový přístup vždy kontroluje enabled, vlastní profil a aktuální rodičovskou podmínku autoritativně. auth_revision se po bezpečnostních změnách zvyšuje a session porovnává původní login revizi, takže stará cookie neožije ani po reaktivaci. CHILD má zákaz všech finančních dat, API, exportů, součtů a FEE notifikací i pro vlastní příspěvky. Evidovaný hráč bez účtu rodiče nevyžaduje.'
 }
 
 Table player_profiles {

@@ -18,4 +18,4 @@ export const person: PersonResponse = {
 export const completeUser: UserResponse = { ...pendingUser, personId: person.id, profileState: "COMPLETE" };
 export const adminUser: UserResponse = { ...completeUser, role: "ADMIN" };
 export const userContext: AccountContext = { accountType: "STANDARD", capabilities: [], ownPlayerId: null, teamContexts: [], children: [] };
-export const adminContext: AccountContext = { ...userContext, capabilities: ["MANAGE_CLUB", "MANAGE_SPORTS"] };
+export const adminContext: AccountContext = { ...userContext, capabilities: ["MANAGE_CLUB", "MANAGE_SPORTS", "MANAGE_SEASONS", "MANAGE_TEAMS", "MANAGE_PLAYERS", "MANAGE_MEMBERSHIPS", "MANAGE_ACCOUNTS", "MANAGE_GUARDIANS"] };

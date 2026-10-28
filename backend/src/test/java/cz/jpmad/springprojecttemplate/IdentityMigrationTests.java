@@ -121,7 +121,8 @@ class IdentityMigrationTests {
     private void migrate(String schema, String target) {
         var configuration = Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
                 .schemas(schema).defaultSchema(schema).locations("classpath:db/migration");
-        if (target != null) configuration.target(MigrationVersion.fromVersion(target));
+        // Tato regrese ověřuje konkrétní přechod V1→V2, ne budoucí doménové migrace.
+        configuration.target(MigrationVersion.fromVersion(target == null ? "2" : target));
         configuration.load().migrate();
     }
 

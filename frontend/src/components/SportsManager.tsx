@@ -8,6 +8,7 @@ import type { PageResponse, SportResponse, SportUpdateRequest } from "@/api/type
 import { AccessGate } from "./AccessGate";
 import { FormField } from "./FormField";
 import { ResourceError } from "./ResourceError";
+import { AdminNav } from "./club/AdminNav";
 
 function NewSport({ onSaved }: { onSaved: () => void }) {
   const [pending, setPending] = useState(false);
@@ -111,6 +112,7 @@ function SportsContent() {
   const denied = resource.state === "error" && resource.error instanceof ApiError && (resource.error.status === 401 || resource.error.status === 403);
 
   return <section className="club-page">
+    <AdminNav />
     <p className="eyebrow">Administrace klubu</p><h1>Správa sportů</h1><p className="lead">Sporty jsou společné pro tuto instalaci. Přidání dalšího sportu nevyžaduje změnu kódu. Deaktivace zachová existující záznam.</p>
     {notice && <p className="message message-success" role="status">{notice}</p>}
     {denied ? <ResourceError error={resource.error} onRetry={reload} /> : <div className="club-two-columns sports-layout">

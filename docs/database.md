@@ -1,16 +1,18 @@
 # Databáze sportovního klubu
 
-Tento dokument a [DBML](sport-club.dbml) popisují **cílový doménový návrh pro PostgreSQL 16**. P1 implementuje jen V2: `persons`, `club`, `audit_log`, `sports` a rozšíření existujících users; zbývajících 33 tabulek, týmové vztahy a veškeré sportovní/finanční workflow jsou plánované. V1 se nemění. P1 je pouze část E1 a neznamená dokončení níže uvedené domény. Jedna instalace spravuje jeden klub a více týmových sportů uložených v databázi. Povinné demonstrační scénáře používají fotbal i basketbal v téže aplikaci. Funkční rozsah původního ODT a aktuální stav implementace sledují [požadavky](requirements.md).
+Tento dokument a [DBML](sport-club.dbml) popisují **cílový model 38 tabulek pro PostgreSQL 16**. Implementované V1–V4 obsahují stále 12 tabulek; dalších 26 je plán. P1–P3 dodávají členský základ E1, nikoli hotovou klubovou aplikaci nebo uzavřenou úplnou akceptaci E1. Jedna instalace má jeden klub a více databázových sportů; každý tým právě jeden sport. [Požadavky](requirements.md) a [ověření](verification.md) oddělují rozsah a skutečné důkazy.
 
-Sporty již administrátor spravuje v P1. Formáty zápasů, bodování, kritéria pořadí a definice statistik bude nastavovat v navazujících administračních obrazovkách. Přidání dalšího sportu nesmí vyžadovat změnu kódu, ruční SQL, úpravu schématu ani sportovní seed skript. Jde o ukládání konfigurace do navržených tabulek přes backend. Použitá pravidla zůstávají chráněná kvůli historii; nová pravidla administrátor vytvoří jako nový formát, ročník nebo definici. Následující popis stanovuje pravidla budoucí implementace; doménové migrace, API i UI se dodají v navazujících etapách.
+## Implementované V1–V4
 
-## Přechodný implementovaný rozsah P1
+V1 users a V2 persons/club/audit_log/sports se nepřepisují. V2 zachovává účty, hashe a časy, systémové role USER/ADMIN, typ STANDARD/CHILD a dočasně nullable UNIQUE users.person_id. PENDING má jen povolený vlastní onboarding/auth a prázdný kontext. V3 přidává seasons, teams, team_seasons, player_profiles, guardian_links, player_team_memberships a coach_team_memberships. V4 doplňuje neveřejný users.auth_revision a guard triggery pro identitu, CHILD a rodičovské vazby. P3 nad nimi poskytuje account/person-link, schvalování/odvolání rodičů, Moje děti a omezené CHILD sportovní čtení; nepřidává tabulku.
 
-`users.role` je USER/ADMIN, `account_type` STANDARD/CHILD a enabled se kontrolují čerstvě. V2 zachová UUID, hashe a časy, staré klubové role mapuje na USER bez domýšlení vztahů; původní hodnotu uchová neveřejné legacy_role. `users.person_id` je přechodně nullable UNIQUE FK. PENDING účet může dokončit pouze vlastní osobu a nemá klubové schopnosti. P1 nedovoluje vznik/aktivaci CHILD a tento typ blokuje; povinný hráčský/rodičovský model doplní P3.
+P2 poskytuje ADMIN správu sezón, týmů, osob, hráčů a členství a scoped soupisky/historii. Hráč má povinné datum narození, neměnnou osobu a nepotřebuje účet ani rodiče. Osobě s hráčem nejde datum narození vymazat. TeamSeason drží samostatný název; přejmenování základního týmu jej nemění. Použité hranice sezóny, sport a typ týmu jsou zamčené; archivace zachová data a zablokuje běžné změny.
 
-Dostupné jsou vlastní GET/POST `/me/person`, `/me/context`, stav a provedení jednorázového setupu a ADMIN seznam/vytvoření/změna sportů. Kód sportu je neměnný, mazání neexistuje. Obecný CRUD osob, účtů, person-link a změny rolí jiných uživatelů jsou až P2/P3. Konkrétní DTO a stavové kódy uvádí [API kontrakt](api-contract.md); provedené běhy [ověření](verification.md).
+V3 instaluje `btree_gist`. EXCLUDE omezuje překryvy stejného hráče/trenéra ve stejném team_season pomocí `[valid_from,valid_to)`; sousední intervaly a současná členství v jiných týmech jsou přípustné. NULL valid_to znamená při čtení a validaci konec sezóny (v EXCLUDE otevřený rozsah, bezpečný díky hranicím a samostatnému team_season). Interval musí celý ležet v sezóně. Externí soupeř nemá interní členství. Trenér musí být enabled STANDARD účet s osobou, včetně vlastního ADMIN.
 
-NOT NULL pro person_id není součástí V2: vyžaduje pozdější ověřený backfill a novou migraci. Následující přehled je cílový model, ne seznam 38 nasazených tabulek.
+ADMIN čte historii i soupisku ke zvolenému dni; běžný účet pouze aktuálně oprávněný přesný sezónní tým. Roster ani základní player detail nevracejí kontakty či datum narození. Aktuální scope omezuje také počty; vlastní hráč a schválený STANDARD rodič dítěte čtou celou příslušnou členskou historii, trenér pouze aktuálně svěřené team_seasons. Rodič získá dnešní tým přes dnešní členství schváleného dítěte, CHILD pouze přes vlastní hráčské členství. Budoucí historické výsledkové pohledy a opravy účastí událostí doplní P5/P6.
+
+NOT NULL pro users.person_id vyžaduje pozdější backfill a novou migraci. Formáty, soutěže, výsledky, statistiky, finance a komunikace níže jsou **cílový návrh**. Další sport i jeho pravidla se budou spravovat v UI bez sportovních větví, ručního SQL nebo seed skriptu.
 
 ## Přehled tabulek
 
@@ -61,9 +63,9 @@ NOT NULL pro person_id není součástí V2: vyžaduje pozdější ověřený ba
 
 `users.account_type` rozlišuje běžný účet `STANDARD` a omezený dětský účet `CHILD`; `users.enabled` určuje povolení přihlášení. Evidovaný nezletilý hráč není automaticky dětský účet: profil bez přihlášení zůstává použitelný pro správu trenérem a nevyžaduje rodičovský účet. CHILD vzniká s `enabled = false`. Před jeho aktivací musí být účet propojen se stejnou osobou jako jeho vlastní hráčský profil a dítě musí mít alespoň jednu schválenou neodvolanou rodičovskou vazbu na osobu s povoleným účtem `STANDARD`. Rodič může mít více dětí a dítě více oprávněných rodičů; potomkem je samostatný účet, nikoli kopie rodičovských oprávnění nebo společná session.
 
-Účet `CHILD` má systémovou roli `USER` a pouze omezený přístup k vlastním povoleným sportovním údajům, dostupnosti a oprávněné komunikaci. Nemůže být ADMIN, získat trenérská či zástupcovská oprávnění ani spravovat ostatní osoby. **Žádná finanční operace není pro CHILD přípustná**, včetně čtení vlastních příspěvků, plateb, seznamů, detailů, souhrnů, exportů a finančních notifikací. Kontrola typu účtu předchází vyhodnocení role a vztahů; znalost ID ani rodičovská session nesmí tento zákaz obejít.
+Účet `CHILD` má systémovou roli `USER`; v P3 čte vlastní osobu, vlastní profil a členskou historii a aktuální vlastní týmy/soupisky. Dostupnost a oprávněná komunikace jsou navazující plán. Nemůže být ADMIN, získat trenérská či zástupcovská oprávnění ani spravovat ostatní osoby. **Žádná finanční operace není pro CHILD přípustná**, včetně čtení vlastních příspěvků, plateb, seznamů, detailů, souhrnů, exportů a finančních notifikací. Kontrola typu účtu předchází vyhodnocení role a vztahů; znalost ID ani rodičovská session nesmí tento zákaz obejít.
 
-Aktivace dětského účtu, změna jeho propojení a odvolání rodičovské vazby se kontrolují na serveru v jedné transakci. Odebrání poslední kvalifikované vazby okamžitě nastaví dítěti `enabled = false` a invaliduje jeho session; nesmí ponechat aktivní účet bez odpovědného rodiče. Totéž platí při deaktivaci posledního rodičovského účtu. Každý další request ověřuje enabled i aktuální platnost vazby. Po doplnění vazby se účet znovu aktivuje až po serverové kontrole všech podmínek. Přepnutí `CHILD` na `STANDARD` je samostatná odůvodněná administrátorská operace, nikoli self-service pole profilu nebo registračního formuláře. Rodič i dítě používají oddělená hesla a session a nepřebírají navzájem svá oprávnění.
+Aktivace dětského účtu, změna jeho propojení a odvolání rodičovské vazby se kontrolují na serveru v jedné transakci. Odebrání poslední kvalifikované vazby okamžitě nastaví dítěti `enabled = false` a invaliduje jeho session; nesmí ponechat aktivní účet bez odpovědného rodiče. Totéž platí při deaktivaci posledního rodičovského účtu. Každý další request ověřuje enabled i aktuální platnost vazby. Po doplnění vazby se účet znovu aktivuje až samostatným administrátorským požadavkem a serverovou kontrolou všech podmínek. Regrant ani opětovné povolení rodiče dítě automaticky neaktivují. Přepnutí `CHILD` na `STANDARD` je samostatná odůvodněná administrátorská operace, nikoli self-service pole profilu nebo registračního formuláře. Rodič i dítě používají oddělená hesla a session a nepřebírají navzájem svá oprávnění.
 
 Aplikace rozlišuje čtyři klubové role ze zadání: **administrátor, trenér, hráč a rodič nebo zákonný zástupce**. V databázi jsou vyjádřené takto:
 
@@ -78,11 +80,19 @@ Vztahy se u účtu STANDARD mohou kombinovat: trenér může být také rodičem
 
 **Implementovaný setup P1:** veřejná registrace vždy vytvoří USER a první registrant se automaticky nestává administrátorem. Provozovatel se přihlásí povoleným účtem STANDARD a provede jednorázový setup s instalačním tokenem ze soukromého prostředí nasazení. `CLUB_SETUP_TOKEN` je soukromá konfigurace backendu; prázdná jej vypíná. Token nemá výchozí hodnotu a neukládá se do DB ani logů. Pod zámkem `club FOR UPDATE` server ověří token, dosud nedokončený setup a absenci prvního administrátora; atomicky přidělí tomuto účtu ADMIN, zapíše `club.setup_completed_at`, `setup_completed_by` a audit. Obě setup pole jsou buď prázdná, nebo vyplněná společně. Souběžný či opakovaný setup nesmí založit dalšího admina. CHILD setup provést nemůže.
 
-Jediný provozovatel následně pod tímto účtem založí sport, sezónu a tým a přiřadí sebe jako trenéra; nepotřebuje druhého uživatele, samostatnou osobu administrátora ani rodičovský vztah ke svěřencům. Změna role se projeví v aktuálním serverovém vyhodnocení session. P1 implementuje převzetí správy a sporty; založení sezóny/týmu a vlastní trenérské přiřazení jsou dosud plán P2.
+Jediný provozovatel následně pod tímto účtem založí sport, sezónu a tým a přiřadí sebe jako trenéra; nepotřebuje druhého uživatele, samostatnou osobu administrátora ani rodičovský vztah ke svěřencům. Změna role se projeví v aktuálním serverovém vyhodnocení session. P1/P2 tento průchod poskytují až po tým, hráče a vlastní trenérské přiřazení; události a další sportovní agenda jsou navazující práce.
 
 Rodičovské vazby schvaluje administrátor a lze je odvolat. Odvolání ukončí oprávnění k dítěti, pokud neexistuje jiný platný důvod přístupu.
 
-Původní E0 používala pět hodnot rolí. P1 je migruje na USER/ADMIN a přidává STANDARD/CHILD, ale CHILD zůstává blokovaný. Přechod na oprávnění z týmových a rodičovských vazeb i funkční dětské účty vyžadují P2/P3 s novými migracemi, serverovými kontrolami, UI a testy. Podmínky přístupu podle aktuální role, typu účtu, vztahů a stavu záznamu popisuje [autorizace](authorization.md).
+Původní E0 používala pět hodnot rolí. P1 je převedla na USER/ADMIN a přidala STANDARD/CHILD, P2 dodala týmové vazby a P3 správu účtů, rodiče a omezený CHILD login. V4 při upgradu nejprve zakáže všechny dosavadní CHILD účty bez domýšlení osob či rodičů. Podmínky přístupu podle aktuální role, typu účtu, vztahů a stavu záznamu popisuje [autorizace](authorization.md).
+
+### Autorizační revize a správa účtů v P3
+
+`users.auth_revision` je neveřejný nezáporný bigint, nikoli verze formuláře. Trigger ji zvýší při změně enabled/role/account_type/person_id/password_hash. Session nese původní revizi a filtr ji ověří proti aktuálnímu účtu před nahrazením principalu. Stará cookie zůstane neplatná i po opětovném povolení účtu. Vlastní onboarding a setup obnoví session jen pro očekávanou revizi své právě dokončené operace; konkurenční změnu nepřebírají.
+
+V4 hlídá neměnnost již propojené osoby, CHILD s vlastním hráčem/rolí USER bez trenérství či rodičovství, povolení dítěte jen s aktivním STANDARD rodičem, zákaz sebevazby a rodičovských cyklů. Změna rodičovské vazby nebo rodičovského účtu automaticky zakáže osiřelý aktivní CHILD a zvýší jeho revizi. Zachované profily a historie se nemažou. Transakční service navíc chrání posledního povoleného dokončeného STANDARD ADMIN a převody typu; jakékoli zachované trenérské členství blokuje převod na CHILD.
+
+Account/person-link a guardian security mutace vyžadují odůvodnění 1–500 znaků. Audit neobsahuje heslo ani kopii requestu; do důvodu správce nevkládá tajné nebo osobní údaje. Rodiče bez účtu lze evidovat, ale nejsou kvalifikovaným aktivním rodičem pro CHILD login. Přímý CHILD allowlist zákaz finančních a notifikačních cest je předběžná hranice, finanční tabulky/API ani schránka dosud nejsou dodané.
 
 ## Týmy a sezóny
 
@@ -235,7 +245,7 @@ Kontroly při zápisu:
 | Vrstva                                     | Co kontroluje                                                                                                                                  |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | PostgreSQL (`PK`, `FK`, `UNIQUE`, `CHECK`) | Existenci vazeb, jedinečnost, platnost lokálních hodnot, úplnost skupin sloupců a základní omezení částek či skóre.                            |
-| PostgreSQL (`EXCLUDE`)                     | Nepřekrývání intervalů členství stejné dvojice hráč/tým a trenér/tým. Omezení je třeba doplnit do SQL migrace.                                 |
+| PostgreSQL (`EXCLUDE`)                     | Nepřekrývání intervalů členství stejné dvojice hráč/tým a trenér/tým je implementované V3 s btree_gist.                                 |
 | Backend                                    | Shodu sezón, členství účastníka, termíny zápisů, sportovní pravidla, finanční součty, návaznost historie a ostatní podmínky přes více tabulek. |
 | Autorizace                                 | Aktuální role a vztahy, oprávnění pro konkrétní operaci, povolená pole a přístup k soukromým údajům.                                           |
 
@@ -276,7 +286,7 @@ Stav implementace a akceptační podmínky původního ODT sledují [požadavky]
 - Basketbalová běžná porážka 0:20 přidělí poraženému 1 bod, zatímco `FORFEIT_HOME` se stejným skóre přidělí domácím 0 a hostům 2. Kontumace nevyžaduje fiktivní odehrané čtvrtiny.
 - Oprava archivovaného výsledku 2:1 na 1:2 vytvoří novou revizi a přepočítá tabulku i statistiky právě z ní. Původní skóre, části, účast a hodnoty zůstanou čitelné. Přejmenování definice nezmění původní název v historickém výsledku; anulování nevstoupí do oficiálních součtů.
 
-Jde o plánované backendové i frontendové unit/integrační a akceptační scénáře. Jejich splnění se zaznamená až po implementaci a skutečném ověření.
+Jde o úplné scénáře cílové domény. P1–P3 implementují identitu, týmové a rodičovské části; výsledky konkrétních běhů jsou pouze v [ověření](verification.md). Soutěžní, finanční a další dosud nedodané části zůstávají plánované.
 
 ## Audit a provozní logy
 

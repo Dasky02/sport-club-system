@@ -6,9 +6,10 @@ import type { Capability } from "@/api/types";
 import { useAuth } from "@/context/AuthContext";
 
 /** Navigační ochrana. Skutečné oprávnění pro každý objekt vyhodnocuje Spring. */
-export function AccessGate({ children, completeProfile = false, capability }: {
+export function AccessGate({ children, completeProfile = false, standardAccount = false, capability }: {
   children: ReactNode;
   completeProfile?: boolean;
+  standardAccount?: boolean;
   capability?: Capability;
 }) {
   const { user, context, loading, initialized, sessionError, refreshUser } = useAuth();
@@ -24,8 +25,9 @@ export function AccessGate({ children, completeProfile = false, capability }: {
   if (completeProfile && user.profileState !== "COMPLETE") {
     return <section className="state-card"><p className="eyebrow">Dokončení účtu</p><h1>Nejprve doplňte osobní údaje.</h1><p>Dokud účet není propojený s osobou, je dostupné pouze dokončení vlastního profilu.</p><Link className="button" href="/profile">Doplnit osobní údaje</Link></section>;
   }
+  if (standardAccount && user.accountType !== "STANDARD") return <section className="state-card"><p className="eyebrow">Omezený přístup</p><h1>Tato stránka je dostupná pouze běžnému účtu.</h1><Link className="button button-secondary" href="/dashboard">Zpět na můj účet</Link></section>;
   if (capability && (user.accountType !== "STANDARD" || user.role !== "ADMIN" || !context?.capabilities.includes(capability))) {
-    return <section className="state-card"><p className="eyebrow">Omezený přístup</p><h1>Tato stránka vyžaduje oprávnění správce.</h1><p>Aktuální účet nemá oprávnění ke správě sportů.</p><Link className="button button-secondary" href="/dashboard">Zpět na můj účet</Link></section>;
+    return <section className="state-card"><p className="eyebrow">Omezený přístup</p><h1>Tato stránka vyžaduje oprávnění správce.</h1><p>Aktuální účet nemá oprávnění k této správní činnosti.</p><Link className="button button-secondary" href="/dashboard">Zpět na můj účet</Link></section>;
   }
   return children;
 }
