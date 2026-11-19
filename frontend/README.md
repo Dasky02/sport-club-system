@@ -28,10 +28,10 @@ npm start
 
 ## Implementovaný rozsah
 
-- `/`: skutečné volání `/info/version`, dostupnost API, retry po výpadku.
+- `/`: veřejný vstup do portálu s odkazy na přihlášení a registraci.
 - `/register`: registrace účtu; payload obsahuje pouze uživatelské jméno a heslo. Nový účet má `USER`/`STANDARD`, `personId: null` a `profileState: PENDING`. Registrace nepředstírá aktivní session.
 - `/login`: JSON přihlášení pomocí serverové session.
-- `/dashboard`: skutečný aktuální uživatel z `/auth/me`, typ účtu, stav profilu a navazující krok podle skutečného `/me/context`; odhlášení.
+- `/dashboard`: nejbližší akce z REST API, počet nepřečtených sportovních oznámení a zkratky podle `/me/context`. Neúplný účet má odkaz na doplnění profilu. Odhlášení ukončí serverové přihlášení.
 - `/profile`: přihlášený STANDARD účet doplní vlastní jméno a příjmení; datum narození, e-mail a telefon jsou nepovinné. Po uložení se znovu načte účet, kontext a skutečná osoba z `/me/person`. Self-service údaje zůstávají pouze ke čtení; P2 ADMIN je může editovat v přehledu osob; pokud osoba již existuje, propojení musí ověřit správce, UI osoby neslučuje.
 - `/setup`: STANDARD účet s dokončeným profilem ověří stav nastavení a může jednou převzít správu neveřejným instalačním tokenem. PENDING, dokončené nastavení a nenakonfigurovaný token mají zakázané odeslání. CHILD tuto činnost nemá. Token patří pouze do POST těla; pole se při odeslání vymaže, nic se nezapisuje do URL, storage ani veřejné proměnné. Po úspěchu se obnoví role a skutečné schopnosti účtu.
 - `/admin/sports`: dokončený STANDARD ADMIN se schopností `MANAGE_SPORTS` načte stránkovaný seznam, přidává, přejmenovává, deaktivuje a znovu aktivuje sporty. Kód je stabilní, normalizuje se na velká písmena a používá `[A-Z][A-Z0-9_]{0,39}`; například FOOTBALL/BASKETBALL jsou hodnoty v DB, nikoli pevný sportovní enum. Žádný DELETE; deaktivace zachová záznam.
@@ -46,8 +46,17 @@ npm start
 - `/admin/teams/[teamSeasonId]`: hráčská a trenérská členství, vlastní účet jako trenér, úplná změna intervalu `[od,do)`; prázdný konec je konec sezóny. Archivace skryje změnové formuláře.
 - `/teams`, `/teams/[teamSeasonId]`: scoped seznam a minimální soupiska; pouze ADMIN má historický datum filtr.
 - `/players/[playerId]`: minimální profil a povolená členská historie, bez kontaktů a financí.
+- `/admin/match-formats`, `/admin/competitions`: formáty zápasů, pravidla soutěžních ročníků a přihlášky.
+- `/calendar`, `/calendar/new`, `/events/[eventId]`: měsíční kalendář, mobilní seznam podle data, plánování a správa dostupnosti, nominací a docházky.
+- `/notifications`: sportovní schránka s označením doručení jako přečteného.
 
-P3 přidává rodičovské vazby a omezené CHILD přihlášení. CHILD má vlastní osobu pouze ke čtení, hráčský profil a dnešní týmové soupisky; nemá setup, administraci, rodičovský přehled ani finance. ADMIN kontext má osm skutečných správních schopností; teamContexts vzniká z aktuálních vlastních, trenérských a schválených dětských členství, bez duplicit. Události, statistiky, výsledky, finance, komunikace a notifikace zůstávají **plánované**. Rozsah dalších etap popisuje [pracovní plán](../docs/implementation-plan.md).
+CHILD vidí vlastní osobní údaje, hráčský profil, oprávněné soupisky, vlastní akce a sportovní oznámení. Dostupnost vyplňuje pouze za sebe. ADMIN kontext má osm správních schopností. Výsledky, statistiky, finance a komunikace popisuje [pracovní plán](../docs/implementation-plan.md).
+
+## Pravidla pro další obrazovky
+
+- Nadpis pojmenuje účel stránky. Používejte běžné české názvy činností, společné barvy a komponenty. Obsah členěný do řádků nebo oddílů má přednost před samostatnou kartou pro každý údaj. [Anthropic frontend-design](https://github.com/anthropics/skills/tree/main/skills/frontend-design)
+- Odkazy slouží k navigaci a tlačítka k akcím. Zachovejte viditelný focus, popisky polí a ovládání klávesnicí. Na mobilu ověřte zalomení dlouhých názvů a velikost ovládacích prvků. Stav sdílených filtrů kalendáře patří do URL. [Vercel Web Interface Guidelines](https://vercel.com/design/guidelines)
+- U formulářů ponechte rozepsané hodnoty při opravitelné chybě. Shrnutí validačních chyb musí uživateli ukázat, kde hodnoty opravit. Při načítání, prázdném výsledku a výpadku zobrazte příslušný stav. [GOV.UK Error summary](https://design-system.service.gov.uk/components/error-summary/)
 
 ## API a session
 

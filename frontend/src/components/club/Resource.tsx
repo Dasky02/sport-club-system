@@ -29,13 +29,16 @@ export function useResource<T>(load: () => Promise<T>, scope: unknown = null) {
 }
 
 export function ResourceView<T>({ resource, reload, children }: { resource: Resource<T>; reload: () => void; children: (data: T) => ReactNode }) {
-  if (resource.state === "loading") return <p role="status">Načítám data…</p>;
+  if (resource.state === "loading") return <p className="resource-loading" role="status">Načítám data…</p>;
   if (resource.state === "error") return <ResourceError error={resource.error} onRetry={reload} />;
   return children(resource.data);
 }
 
 export function Pagination({ page, result, changePage }: { page: number; result: PageResponse<unknown>; changePage: (page: number) => void }) {
-  return <nav className="pagination" aria-label="Stránkování"><button className="button button-secondary button-small" disabled={page === 0} onClick={() => changePage(page - 1)}>Předchozí stránka</button><span>Stránka {page + 1}{result.totalPages > 0 ? ` z ${result.totalPages}` : ""} · Celkem {result.totalElements}</span><button className="button button-secondary button-small" disabled={page + 1 >= result.totalPages} onClick={() => changePage(page + 1)}>Další stránka</button></nav>;
+  if (page === 0 && result.totalPages <= 1) {
+    return result.totalPages === 1 ? <span className="result-count">Celkem {result.totalElements}</span> : null;
+  }
+  return <nav className="pagination" aria-label="Stránkování"><button type="button" className="button button-secondary button-small" disabled={page === 0} onClick={() => changePage(page - 1)}>Předchozí stránka</button><span aria-live="polite">Stránka {page + 1}{result.totalPages > page ? ` z ${result.totalPages}` : ""} · Celkem {result.totalElements}</span><button type="button" className="button button-secondary button-small" disabled={page + 1 >= result.totalPages} onClick={() => changePage(page + 1)}>Další stránka</button></nav>;
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {

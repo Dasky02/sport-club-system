@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useId, useRef, type ReactNode, type SelectHTMLAttributes } from "react";
 import { mapErrorToMessage } from "@/api/errorMapper";
 import { FormField } from "../FormField";
 import type { PersonRequest } from "@/api/types";
@@ -12,8 +12,12 @@ export function SelectField({ name, label, children, hint, error, ...input }: { 
 }
 
 export function FormError({ error, fieldErrors = {} }: { error: unknown; fieldErrors?: Record<string, string> }) {
+  const summary = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (error != null) summary.current?.focus();
+  }, [error]);
   if (error === null || error === undefined) return null;
-  return <p className="message message-error" role="alert">{Object.keys(fieldErrors).length ? "Zkontrolujte označená pole." : mapErrorToMessage(error)}</p>;
+  return <p className="message message-error form-error" ref={summary} tabIndex={-1} role="alert">{Object.keys(fieldErrors).length ? "Zkontrolujte označená pole." : mapErrorToMessage(error)}</p>;
 }
 
 export function PersonFields({ initial, requiredBirthDate = false, disabled = false, errors = {} }: { initial?: PersonRequest; requiredBirthDate?: boolean; disabled?: boolean; errors?: Record<string, string> }) {

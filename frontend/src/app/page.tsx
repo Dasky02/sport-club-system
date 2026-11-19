@@ -1,34 +1,34 @@
-import Link from "next/link";
-import { ApiStatus } from "@/components/ApiStatus";
+import Image from "next/image";
+import { HomeActions } from "@/components/HomeActions";
+import { ClubIcon, type ClubIconName } from "@/components/ClubIcon";
+
+const features: { icon: ClubIconName; title: string; description: string }[] = [
+  { icon: "calendar", title: "Klubový kalendář", description: "Termíny tréninků a zápasů. Dostupnost můžete potvrdit přímo u akce." },
+  { icon: "team", title: "Týmy a soupisky", description: "Přehled sezón a členství podle toho, ke kterým týmům máte přístup." },
+  { icon: "bell", title: "Oznámení", description: "Změny termínů a zveřejněné nominace najdete ve vlastní schránce." },
+];
 
 export default function HomePage() {
   return (
     <>
-      <section className="hero" aria-labelledby="hero-title">
-        <div className="hero-copy">
-          <p className="eyebrow"><span className="status-dot" /> Ročníkový projekt · klub a rodina</p>
-          <h1 id="hero-title">Společný základ<br />pro váš <span>sportovní klub.</span></h1>
-          <p className="lead">Místo pro tým, který chce mít svůj klub pod kontrolou. Dostupné jsou účty, osobní údaje, správa sportů, sezón, týmů a hráčů i povolené týmové soupisky. Rodiče mají přehled schválených dětí; děti vlastní omezený účet.</p>
-          <div className="actions">
-            <Link className="button" href="/register">Vytvořit účet <span aria-hidden="true">↗</span></Link>
-            <Link className="button button-secondary" href="/login">Přihlásit se</Link>
-          </div>
-          <p className="subtle">Nový účet vzniká jako USER/STANDARD. Po přihlášení doplníte vlastní osobní údaje.</p>
-        </div>
-        <aside className="hero-panel" aria-label="Stav technického základu">
-          <div className="panel-heading"><span className="eyebrow">Společný základ</span><span className="pill">Balíček P3</span></div>
-          <div className="court" aria-hidden="true"><span className="court-circle" /><span className="court-line" /><span className="court-ball">●</span></div>
-          <ApiStatus />
-        </aside>
-      </section>
-      <section className="scope-section" aria-labelledby="scope-title">
-        <div className="section-heading"><p className="eyebrow">Jasný rozsah</p><h2 id="scope-title">Co je dostupné nyní</h2></div>
-        <div className="feature-grid">
-          <article className="feature-card"><span className="feature-number">01</span><h3>Účet a osobní údaje</h3><p>Registrace, přihlášení, doplnění vlastní osoby, obnovení session a odhlášení nad skutečným backendem.</p></article>
-          <article className="feature-card"><span className="feature-number">02</span><h3>Týmy a soupisky</h3><p>Administrátor spravuje sporty, sezóny, hráče a trenérská přiřazení. Každý účet vidí pouze povolené týmové údaje.</p></article>
-          <article className="feature-card planned"><span className="pill">Plánováno</span><h3>Další klubové činnosti</h3><p>Události, výsledky, statistiky, příspěvky a komunikace jsou součástí navazujících etap.</p></article>
-        </div>
-      </section>
+    <section className="welcome" aria-labelledby="welcome-title">
+      <div className="welcome-copy">
+        <h1 id="welcome-title">Klubový portál</h1>
+        <p>Přehled klubového dění pro hráče, trenéry a rodiče.</p>
+        <HomeActions />
+      </div>
+      <div className="welcome-photo">
+        <Image src="/club-training.webp" alt="" fill sizes="(max-width: 760px) 100vw, 52vw" preload />
+      </div>
+    </section>
+    <ul className="welcome-features" aria-label="Funkce klubového portálu">
+      {features.map(({ icon, title, description }) => (
+        <li key={title}>
+          <ClubIcon name={icon} />
+          <div><h2>{title}</h2><p>{description}</p></div>
+        </li>
+      ))}
+    </ul>
     </>
   );
 }

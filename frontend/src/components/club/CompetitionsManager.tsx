@@ -11,8 +11,8 @@ import { mapFieldErrors } from "@/api/errorMapper";
 import { ApiError } from "@/api/api";
 import type { SportResponse } from "@/api/types";
 import { AccessGate } from "../AccessGate";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { FormField } from "../FormField";
-import { AdminNav } from "./AdminNav";
 import { FormError, SelectField } from "./Fields";
 import { EmptyState, Pagination, ResourceView, useResource } from "./Resource";
 import { CompetitionConfigurationFields, configurationFromForm } from "./CompetitionConfigurationFields";
@@ -96,11 +96,11 @@ function LoadedContent({ initialOptions }: { initialOptions: Options }) {
       : [...options.competitions, competition] }));
     competitions.reload(); seasons.reload();
   };
-  return <section className="club-page"><AdminNav /><p className="eyebrow">Administrace klubu</p><h1>Soutěže a ročníky</h1><p className="lead">Soutěž patří jednomu sportu. Každý její ročník má vlastní úplné bodování, kontumace, pořadí a přihlášené týmy.</p>
+  return <section className="club-page"><AdminPageHeader title="Soutěže a ročníky" actions={[{ id: "nova-soutez", label: "Založit soutěž" }, { id: "novy-rocnik", label: "Založit ročník" }]} /><p className="lead">Soutěž patří jednomu sportu. Každý její ročník má vlastní úplné bodování, kontumace, pořadí a přihlášené týmy.</p>
       <SelectField name="sportFilter" label="Filtr sportu soutěží" value={sport} onChange={(event) => { setSport(event.target.value); setCompetitionPage(0); setSeasonPage(0); }}><option value="">Všechny sporty</option>{data.sports.map((s) => <option value={s.id} key={s.id}>{s.name}</option>)}</SelectField>
-      <div className="club-two-columns"><section className="detail-card"><CompetitionForm sports={data.sports} saved={saved} /></section><section className="detail-card"><NewSeasonForm options={data} /></section></div>
       <h2>Soutěžní ročníky</h2><ResourceView resource={seasons.resource} reload={seasons.reload}>{(result) => <div className="club-stack">{result.items.length ? result.items.map((s) => <article className="detail-card" key={s.id} aria-label={`${s.competitionName} ${s.seasonName}`}><h3>{s.competitionName} · {s.seasonName}</h3><p>{s.sportName} · {s.matchFormatName} · {s.archived ? "Archivováno" : s.lockedAt ? "Použitá pravidla" : "Otevřený ročník"}</p><Link className="button button-secondary" href={`/admin/competitions/${encodeURIComponent(s.id)}`}>Pravidla a přihlášky</Link></article>) : <EmptyState>Zatím nejsou založené soutěžní ročníky.</EmptyState>}<Pagination page={seasonPage} result={result} changePage={setSeasonPage} /></div>}</ResourceView>
       <h2>Soutěže</h2><ResourceView resource={competitions.resource} reload={competitions.reload}>{(result) => <div className="club-cards">{result.items.map((c) => <article key={c.id} className="detail-card" aria-label={c.name}><h3>{c.name}</h3><p>{c.sportName}</p><CompetitionForm sports={data.sports} initial={c} saved={saved} /></article>)}<Pagination page={competitionPage} result={result} changePage={setCompetitionPage} /></div>}</ResourceView>
+      <div className="club-two-columns section-space"><section className="detail-card admin-editor" id="nova-soutez"><CompetitionForm sports={data.sports} saved={saved} /></section><section className="detail-card admin-editor" id="novy-rocnik"><NewSeasonForm options={data} /></section></div>
   </section>;
 }
 function Content() {

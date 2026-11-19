@@ -9,9 +9,9 @@ import { mapFieldErrors } from "@/api/errorMapper";
 import type { SportResponse } from "@/api/types";
 import { AccessGate } from "../AccessGate";
 import { FormField } from "../FormField";
-import { AdminNav } from "./AdminNav";
 import { FormError, SelectField } from "./Fields";
 import { EmptyState, Pagination, ResourceView, useResource } from "./Resource";
+import { AdminPageHeader } from "./AdminPageHeader";
 
 const defaultConfiguration: MatchFormatConfiguration = {
   scoreMode: "SUM_SCORE", allowDraw: false, periodsRequired: false, periodLabel: "Část",
@@ -104,13 +104,14 @@ function FormatsContent() {
   const formats = useResource(load);
   const sports = useResource(loadSports);
   const saved = () => { setNotice("Formát zápasu byl uložen."); formats.reload(); };
-  return <section className="club-page"><AdminNav /><p className="eyebrow">Administrace klubu</p><h1>Formáty zápasu</h1><p className="lead">Nastavte vyhodnocení výsledku a části pro libovolný sport. Formát neurčuje soutěžní body ani pořadí.</p>
+  return <section className="club-page"><AdminPageHeader title="Formáty zápasu" actions={[{ id: "novy-format", label: "Nový formát" }]} />
     {notice && <p className="message message-success" role="status">{notice}</p>}
     <ResourceView resource={sports.resource} reload={sports.reload}>{(sportItems) => <>
       {!sportItems.some((s) => s.active) && <p className="message">Před vytvořením formátu založte nebo aktivujte sport ve správě sportů.</p>}
       <SelectField name="sportFilter" label="Filtr sportu" value={sport} onChange={(event) => { setSport(event.target.value); setPage(0); }}><option value="">Všechny sporty</option>{sportItems.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</SelectField>
-      <div className="club-two-columns"><div className="detail-card"><FormatForm sports={sportItems} onSaved={() => { setPage(0); saved(); }} /></div>
+      <div className="admin-split">
         <ResourceView resource={formats.resource} reload={formats.reload}>{(result) => <div className="club-stack">{result.items.length ? result.items.map((format) => <FormatCard key={`${format.id}:${format.version}:${format.lockedAt ?? ""}`} format={format} sports={sportItems} saved={saved} reload={formats.reload} />) : <EmptyState>Zatím nejsou vytvořené žádné formáty pro tento výběr.</EmptyState>}<Pagination page={page} result={result} changePage={setPage} /></div>}</ResourceView>
+        <div id="novy-format" className="detail-card admin-editor"><FormatForm sports={sportItems} onSaved={() => { setPage(0); saved(); }} /></div>
       </div>
     </>}</ResourceView>
   </section>;

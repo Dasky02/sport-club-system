@@ -78,7 +78,7 @@ function AttendanceForm({ event, p, busy, run }: { event: ClubEvent; p: Particip
   </ParticipationForm>;
 }
 
-function AddParticipantForm({ event, teams, busy, run }: { event: ClubEvent; teams: EventTeam[]; busy: boolean; run: Run }) {
+function AddParticipantForm({ event, teams, admin, busy, run }: { event: ClubEvent; teams: EventTeam[]; admin: boolean; busy: boolean; run: Run }) {
   const [team, setTeam] = useState(teams[0].id);
   const [player, setPlayer] = useState("");
   const load = useCallback(() => getEligibleEventParticipants(event.id, team), [event.id, team]);
@@ -94,7 +94,10 @@ function AddParticipantForm({ event, teams, busy, run }: { event: ClubEvent; tea
       }}><label className="field">Hráč<select required value={player} onChange={(e) => setPlayer(e.target.value)}>
         <option value="">Vyberte hráče</option>{players.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label></ParticipationForm>
-      : <p>V tomto týmu nejsou žádní další hráči s platným členstvím k termínu akce.</p>}
+      : <div className="event-prerequisite">
+        <p>V tomto týmu nejsou další hráči s platným členstvím v den akce.</p>
+        {admin && <Link href={`/admin/teams/${team}#pridat-hrace`}>Zkontrolovat členství hráčů</Link>}
+      </div>}
     </ResourceView>
   </details>;
 }
@@ -106,6 +109,7 @@ function ParticipantCard({ event, p, team, admin, now, busy, run }: { event: Clu
   const canAnswer = published && p.canAnswer && now <= deadline;
   const correction = !canAnswer && admin && (published || event.status === "COMPLETED");
   const active = !p.withdrawn;
+  const showNomination = event.type === "MATCH" || p.nomination !== null || p.publishedNomination !== null;
   return <article className="detail-card event-participant">
     <header className="event-heading"><div><h3>{p.name}</h3><p>{team}</p></div>{p.withdrawn && <span className="pill">Vyřazen z akce</span>}</header>
     <div className="event-part-columns">
@@ -115,11 +119,11 @@ function ParticipantCard({ event, p, team, admin, now, busy, run }: { event: Clu
         {p.availabilityComment && <p className="event-description">{p.availabilityComment}</p>}
         {active && (canAnswer || correction) && <AvailabilityForm event={event} p={p} correction={correction} busy={busy} run={run} />}
       </section>
-      <section aria-label={`Nominace hráče ${p.name}`}>
+      {showNomination && <section aria-label={`Nominace hráče ${p.name}`}>
         <h4>Nominace</h4>
         <p>{p.publishedNomination ? nominationLabels[p.publishedNomination] : "Bez zveřejněné nominace"}</p>
         {active && event.canManage && published && !started && <NominationForm event={event} p={p} busy={busy} run={run} />}
-      </section>
+      </section>}
       <section aria-label={`Docházka hráče ${p.name}`}>
         <h4>Docházka</h4>
         <p>{p.attendance ? attendanceLabels[p.attendance] : notRecorded}</p>
@@ -196,7 +200,7 @@ function EventContent({ details, reload, admin }: { details: EventDetails; reloa
         <h2>Účastníci</h2>
         {event.canManage && published && !started && pendingNomination && <button type="button" className="button" disabled={busy} onClick={() => action("nomination/publish", "Nominace zveřejněna.")}>Zveřejnit nominaci</button>}
       </div>
-      {event.canManage && published && !started && teams.length > 0 && <AddParticipantForm event={event} teams={teams} busy={busy} run={run} />}
+      {event.canManage && published && !started && teams.length > 0 && <AddParticipantForm event={event} teams={teams} admin={admin} busy={busy} run={run} />}
       {participants.length ? participants.map((p) => <ParticipantCard key={`${p.playerId}-${p.version}`} event={event} p={p} team={teams.find((team) => team.id === p.teamSeasonId)?.name ?? ""} admin={admin} now={now} busy={busy} run={run} />)
         : <p>Nemáte žádné dostupné záznamy účastníků.</p>}
     </section>}

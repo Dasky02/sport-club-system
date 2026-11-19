@@ -8,7 +8,9 @@ export function ResourceError({ error, onRetry }: { error: unknown; onRetry: () 
   const { refreshUser } = useAuth();
   const denied = error instanceof ApiError && (error.status === 401 || error.status === 403);
   return <div className="resource-error">
-    <p className="message message-error" role="alert">{mapErrorToMessage(error)}</p>
+    <p className="message message-error" role="alert">
+      {error instanceof ApiError && error.status === 401 ? "Přihlášení vypršelo. Obnovte ověření přístupu." : mapErrorToMessage(error)}
+    </p>
     {denied
       ? <button type="button" className="button button-secondary" onClick={() => void refreshUser()}>Obnovit ověření přístupu</button>
       : <button type="button" className="button button-secondary" onClick={onRetry}>Zkusit znovu</button>}
