@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   addEventParticipant, changeParticipation, discardEventDraft, eventAction, getEligibleEventParticipants, getEvent, saveAttendance, saveAvailability, saveNomination,
   type Attendance, type Availability, type ClubEvent, type EventDetails, type EventTeam, type Nomination, type Participant,
@@ -143,7 +143,11 @@ function EventContent({ details, reload, admin }: { details: EventDetails; reloa
   const { schedule } = event;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [now] = useState(Date.now);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const started = now >= Date.parse(schedule.startsAt);
   const ended = now >= Date.parse(schedule.endsAt);
   const published = event.status === "PUBLISHED";
