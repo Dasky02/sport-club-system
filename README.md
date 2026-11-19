@@ -6,6 +6,8 @@ Základ zachovává Spring REST API, UUID účty a BCrypt, session `JSESSIONID`,
 
 P2 přidává V3, sezóny, vlastní i externí týmy, hráče bez účtů, trenérská přiřazení, intervalová členství, historii a oprávněné soupisky. P3 přidává V4, administrátorskou správu účtů na ověřené osoby, person-link, role/typ/přístup, schválené rodičovské vazby, Moje děti a omezené CHILD přihlášení ke sportovním údajům. Události, výsledky, statistiky, příspěvky, komunikace a notifikace zůstávají **plánované**. Předběžný zákaz finančních cest pro CHILD není implementovaná finanční agenda. Rozsah implementace popisuje [API kontrakt](docs/api-contract.md); skutečně provedené kontroly a jejich omezení uvádí [ověření](docs/verification.md).
 
+P4 přidává **formáty zápasu** (`/admin/match-formats`) a **soutěže a ročníky** (`/admin/competitions`) pro dokončeného aktivního STANDARD ADMIN: vyhodnocení skóre/částí, úplné bodování podle výsledku/ukončení a rozsahů skóre, obě soutěžní kontumace, kritéria pořadí a H2H politiku, přihlášky klubových i externích sezónních týmů. V5/V6 rozšiřují schéma na 19 tabulek. Server odmítá cizí sport/sezónu, neúplná či překrývající se pravidla, staré verze a změny historických/archivovaných konfigurací. Výsledky, výpočet tabulek a statistik patří do P5/P6. Lokální ověření viz [záznam](docs/verification.md).
+
 ## Požadavky
 
 - Java **17** a Maven Wrapper (v repozitáři; Maven není nutné instalovat).
@@ -15,6 +17,8 @@ P2 přidává V3, sezóny, vlastní i externí týmy, hráče bez účtů, tren�
 - Volné porty 5432 (lokální DB), 8080 (API), 3000 (frontend).
 
 Backend používá Spring Boot 4.0.3 a springdoc 3.0.3 podle [oficiální kompatibility](https://springdoc.org/#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot). Přesné verze frontendových závislostí jsou v `frontend/package.json` a `package-lock.json`. Běžné kontroly nevyžadují žádný token ani produkční secrets.
+
+Verze testovacího Testcontainers vychází z dependency managementu Spring Boot (nyní 2.0.3); projekt ji samostatně nepřepisuje. JUnit a PostgreSQL moduly používají názvy `testcontainers-junit-jupiter` a `testcontainers-postgresql` řady 2.x. Kompatibilitu Docker API řeší knihovna, běžný testovací běh nepotřebuje ruční `api.version` ani `JAVA_TOOL_OPTIONS` workaround. Při změně Spring Boot ověřte celou backendovou sadu včetně PostgreSQL a migračních testů.
 
 ## Od čistého klonu: lokální vývoj
 
