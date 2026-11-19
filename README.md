@@ -1,12 +1,16 @@
 # Informační systém pro správu sportovního klubu
 
-Samostatný týmový ročníkový projekt `sport-club-system`. **E0 a balíčky P1–P3 tvoří technický a členský základ E1; úplná akceptace E1 ani celá klubová aplikace nejsou uzavřené.** Cílový rozsah odpovídá `zadani_sportovni_klub_v2.odt`; finální akceptace zahrnuje fotbal i basketbal v jedné aplikaci bez změny kódu.
+Samostatný týmový ročníkový projekt `sport-club-system`. **Aktuální rozsah zahrnuje E0 a balíčky P1–P5 od technického základu po kalendář klubu.** Cílový rozsah odpovídá `zadani_sportovni_klub_v2.odt`; finální akceptace zahrnuje fotbal i basketbal v jedné aplikaci bez změny kódu.
 
 Základ zachovává Spring REST API, UUID účty a BCrypt, session `JSESSIONID`, CSRF, info API s verzí z JAR, samostatný Next.js frontend, Docker a CI. P1 přidává Flyway V2, doplnění vlastní osoby, aktuální autorizační kontext, bezpečné jednorázové převzetí správy a administrátorský seznam, založení a úpravu sportů. Veřejná registrace vytváří `USER`/`STANDARD` bez klubových práv; neúplný účet nejdříve dokončí osobní údaje.
 
-P2 přidává V3, sezóny, vlastní i externí týmy, hráče bez účtů, trenérská přiřazení, intervalová členství, historii a oprávněné soupisky. P3 přidává V4, administrátorskou správu účtů na ověřené osoby, person-link, role/typ/přístup, schválené rodičovské vazby, Moje děti a omezené CHILD přihlášení ke sportovním údajům. Události, výsledky, statistiky, příspěvky, komunikace a notifikace zůstávají **plánované**. Předběžný zákaz finančních cest pro CHILD není implementovaná finanční agenda. Rozsah implementace popisuje [API kontrakt](docs/api-contract.md); skutečně provedené kontroly a jejich omezení uvádí [ověření](docs/verification.md).
+P2 přidává V3, sezóny, vlastní i externí týmy, hráče bez účtů, trenérská přiřazení, intervalová členství, historii a oprávněné soupisky. P3 přidává V4, administrátorskou správu účtů na ověřené osoby, person-link, role/typ/přístup, schválené rodičovské vazby, Moje děti a omezené CHILD přihlášení ke sportovním údajům. Rozsah implementace popisuje [API kontrakt](docs/api-contract.md); skutečně provedené kontroly a jejich omezení uvádí [ověření](docs/verification.md).
 
-P4 přidává **formáty zápasu** (`/admin/match-formats`) a **soutěže a ročníky** (`/admin/competitions`) pro dokončeného aktivního STANDARD ADMIN: vyhodnocení skóre/částí, úplné bodování podle výsledku/ukončení a rozsahů skóre, obě soutěžní kontumace, kritéria pořadí a H2H politiku, přihlášky klubových i externích sezónních týmů. V5/V6 rozšiřují schéma na 19 tabulek. Server odmítá cizí sport/sezónu, neúplná či překrývající se pravidla, staré verze a změny historických/archivovaných konfigurací. Výsledky, výpočet tabulek a statistik patří do P5/P6. Lokální ověření viz [záznam](docs/verification.md).
+P4 přidává **formáty zápasu** (`/admin/match-formats`) a **soutěže a ročníky** (`/admin/competitions`) pro dokončeného aktivního STANDARD ADMIN: vyhodnocení skóre/částí, úplné bodování podle výsledku/ukončení a rozsahů skóre, obě soutěžní kontumace, kritéria pořadí a H2H politiku, přihlášky klubových i externích sezónních týmů. V5–V7 rozšiřují schéma na 19 tabulek. Server odmítá cizí sport/sezónu, neúplná či překrývající se pravidla, staré verze a změny historických/archivovaných konfigurací.
+
+P5 přidává **kalendář** (`/calendar`) tréninků, zápasů a klubových akcí, vydání konceptu, změny a rušení, dostupnost, oddělenou nominaci a docházku, evidenci nastoupení v zápasu a **sportovní oznámení** (`/notifications`). V8 rozšiřuje schéma na 25 tabulek. Zveřejněná akce je dostupná účastníkům a schváleným rodičům; správu určuje aktuální trenérské přiřazení nebo ADMIN. Zápas používá formát a případně soutěžní ročník z P4.
+
+**Další etapy** zahrnují výsledky, statistiky a výpočet pořadí (P6), členské příspěvky, úhrady a splatnostní výzvy (P7), konverzace (P8) a kompletní akceptaci s předáním (P9).
 
 ## Požadavky
 
@@ -73,6 +77,10 @@ Otevřete [frontend](http://localhost:3000). [Verze API](http://localhost:8080/a
 9. U hráče otevřete **Rodiče a zástupci**, vyberte ověřenou osobu a odůvodněte schválení vazby. Rodič se STANDARD účtem uvidí `/my-children`. Nový CHILD účet vzniká zakázaný a vyžaduje vlastní hráčský profil a nejméně jednoho schváleného rodiče s povoleným STANDARD účtem; teprve pak použijte **Aktivovat dětský účet**. Role, typ, přístup, person-link a rodičovské změny vyžadují důvod bez tajných či osobních údajů. Zákaz účtu, změna typu a odvolání vazby mají potvrzení dopadu.
 
 Při upgradu původní databáze se V1 nepřepisuje: V2 zachová UUID, BCrypt hashe a časy. ADMIN zůstává ADMIN, staré COACH/PLAYER/PARENT se převádějí na USER bez vymyšlených vztahů. Účty mohou mít dočasně `person_id = NULL`, po přihlášení dokončí vlastní onboarding. Existující ADMIN při migraci uzavře prvotní setup a po doplnění osoby může spravovat sporty. V4 při upgradu zakáže všechny dřívější CHILD účty bez domýšlení osoby nebo rodiče. Současný ADMIN po ověření může doplnit vazby a provést samostatnou aktivaci. Ztráta posledního platného aktivního rodiče dítě zakáže a odvolá jeho přihlášení; opětovné schválení rodiče či jeho povolení dítě samo neaktivuje. Stará cookie se neobnoví ani po reaktivaci účtu. Podrobný postup a plán čtyř klubových rolí obsahuje [příručka](docs/user-guide.md).
+
+## První akce v kalendáři
+
+V **Kalendáři** vytvořte koncept tréninku pro sezónní tým a zveřejněte ho. Systém pořídí soupisku podle termínu akce. Hráči nebo jejich rodiče vyplní dostupnost do uzávěrky. Trenér v detailu uloží návrhy nominací a samostatně je zveřejní. Od začátku akce zapíše docházku. Oznámení o nové akci, změně, zrušení nebo zveřejněné nominaci najdou příslušní uživatelé ve vlastní schránce. Podrobnosti pro všechny klubové role jsou v [příručce](docs/user-guide.md).
 
 ## Celá sestava v Dockeru
 

@@ -294,6 +294,7 @@ Table event_participants {
   nomination nomination_status
   nomination_by uuid [ref: >? users.id]
   nomination_at timestamptz
+  published_nomination nomination_status [note: 'Poslední zveřejněná hodnota dostupná hráči a jeho zástupci.']
   attendance attendance_status
   attendance_comment varchar(500)
   attendance_by uuid [ref: >? users.id]

@@ -32,6 +32,15 @@ class CompetitionMigrationTests {
             assertThatThrownBy(()->execute(c,"UPDATE match_formats SET locked_at=NULL WHERE id=?",format)).isInstanceOf(SQLException.class);
         }
         assertThat(migrate("6").migrationsExecuted).isZero();
+        migrate("7");
+        try (var c=connect()) {
+            var before=snapshot(c);
+            var checksums=value(c,"SELECT string_agg(version || ':' || checksum,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success");
+            assertThat(migrate("8").migrationsExecuted).isEqualTo(1);
+            assertThat(snapshot(c)).hasSize(25).containsAllEntriesOf(before);
+            assertThat(value(c,"SELECT string_agg(version || ':' || checksum,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success AND version<>'8'")).isEqualTo(checksums);
+        }
+        assertThat(migrate("8").migrationsExecuted).isZero();
     }
     private Map<String,String> snapshot(Connection c) throws Exception {
         var result=new LinkedHashMap<String,String>();

@@ -163,6 +163,9 @@ public class TeamDomainService {
     public PlayerMembershipResponse updatePlayerMembership(UUID actor,UUID id,MembershipPatch r) {
         actor(actor,true,true); var old=data.playerMembership(id); var team=membershipTeam(old.teamSeasonId()); interval(team,r.validFrom(),r.validTo());
         if(data.playerOverlap(old.teamSeasonId(),old.playerId(),id,r.validFrom(),r.validTo())) conflict("MEMBERSHIP_OVERLAP","Členství se překrývá se stávajícím intervalem.");
+        if (data.blocksMembershipChange(id,old.teamSeasonId(),old.playerId(),r.validFrom(),r.validTo(),clock.instant().atOffset(ZoneOffset.UTC))) {
+            conflict("EVENT_MEMBERSHIP_CONFLICT","Nejprve vyřaďte hráče z dotčených budoucích akcí.");
+        }
         data.updatePlayerMembership(id,r.validFrom(),r.validTo()); audit.record(actor,"PLAYER_MEMBERSHIP_UPDATED","player_team_memberships",id); return data.playerMembership(id);
     }
     public CoachMembershipResponse updateCoachMembership(UUID actor,UUID id,MembershipPatch r) {

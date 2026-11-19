@@ -6,7 +6,7 @@ Konkrétní pořadí balíčků P0–P9, bezpečný převod současných účtů
 
 ## Implementovaný rozsah E0 + P1–P3
 
-P1 dodává identitu, setup a sporty. P2 přidává V3 a skutečnou správu sezón/týmů/osob/hráčů/členství, vlastní trenérství a scoped soupisky/historii. P3 přidává V4, ověřené účty a person-link, role/typ/přístup, schválení/odvolání rodičů, Moje děti a omezené CHILD sportovní čtení. V1–V4 mají stále 12 tabulek; 26 zůstává plánovaných. CHILD má vlastní profil a aktivního schváleného rodiče, ztráta posledního jej zakáže a stará session neobživne po reaktivaci. Předběžný zákaz finančních/notifikačních cest není funkční finanční agenda. P1–P3 jsou členský základ E1; úplná akceptace E1 ani projekt nejsou uzavřené. Události, finance, výsledky, statistiky, notifikace a komunikace nejsou implementované. Skutečné kontroly zaznamenává [ověření](verification.md).
+P1–P3 dodávají členský a rodičovský základ, P4 formáty zápasu a soutěžní konfiguraci. P5 dodává kalendář, nezávislé evidence účasti a sportovní schránku. V1–V8 tvoří 25 z 38 cílových tabulek. P6–P9 zahrnují výsledky/statistiky/pořadí, finance, konverzace a předání. Skutečné kontroly zaznamenává [ověření](verification.md).
 
 ## Etapy a výstupy
 

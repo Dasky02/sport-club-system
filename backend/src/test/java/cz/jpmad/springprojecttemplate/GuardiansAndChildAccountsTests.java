@@ -76,8 +76,11 @@ class GuardiansAndChildAccountsTests {
         grant(a,one,p.person());var account=createAccount(a,personOf(one),"CHILD");activate(a,account);var child=account.loginCopy();
         ok(child.get("/team-seasons/"+ts+"/players"),200);ok(child.get("/players/"+one+"/memberships"),200);error(child.get("/players/"+other),404,"NOT_FOUND");
         var context=json(child.get("/me/context"));assertThat(context.path("children").isEmpty()).isTrue();assertThat(context.path("capabilities").isEmpty()).isTrue();assertThat(context.path("ownPlayerId").asText()).isEqualTo(one);
-        for(String path:List.of("/me/children","/admin/users","/persons","/players","/club/setup-status","/me/fees","/fees/"+UUID.randomUUID(),"/fees/export","/payments/"+UUID.randomUUID(),"/notifications","/notifications/count","/notifications/"+UUID.randomUUID(),"/me/children/"+one+"/fees")) error(child.get(path),403,"FORBIDDEN");
+        for(String path:List.of("/me/children","/admin/users","/persons","/players","/club/setup-status","/me/fees","/fees/"+UUID.randomUUID(),"/fees/export","/payments/"+UUID.randomUUID(),"/notifications/count","/me/children/"+one+"/fees")) error(child.get(path),403,"FORBIDDEN");
         for(String path:List.of("/me/person","/club/setup","/admin/users/"+child.id+"/role","/players/"+one+"/guardians/"+p.person(),"/notifications/read","/fees")) error(child.post(path,WHY),403,"FORBIDDEN");
+        ok(child.get("/notifications"),200);
+        ok(child.get("/notifications/unread-count"),200);
+        error(child.post("/notifications/"+UUID.randomUUID()+"/read",Map.of()),404,"NOT_FOUND");
         error(child.patch("/me/person",Map.of("birthDate","1980-01-01")),403,"FORBIDDEN");ok(child.get("/me/person"),200);
     }
 

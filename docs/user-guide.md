@@ -1,6 +1,6 @@
 # Uživatelská příručka
 
-**Dostupné E0 + P1–P4:** účty/osoby, bezpečný setup, sporty, sezóny, týmy, hráči, členství, rodiče, Moje děti, omezený CHILD a ADMIN formáty, soutěže, ročníky, pravidla a přihlášky týmů. Kalendář, dostupnost/nominace/docházka, výsledky/statistiky a výpočet pořadí, finance, notifikace a konverzace zůstávají **plán** v P5–P9. Celý projekt ani úplná akceptace E1/E3 nejsou uzavřené; rozsah sledují [požadavky](requirements.md), provedené kontroly [ověření](verification.md).
+**Dostupné E0 + P1–P5:** účty a osoby, setup, sporty, sezóny, týmy, hráči, členství, rodiče, Moje děti, omezený CHILD, soutěžní konfigurace, kalendář, dostupnost, nominace, docházka a sportovní oznámení. Výsledky, statistiky, pořadí, finance, splatnostní výzvy a konverzace patří do P6–P9. Skutečné kontroly uvádí [ověření](verification.md).
 
 ## Formáty zápasu — P4
 
@@ -8,7 +8,7 @@ Stránka **Formáty zápasu** (`/admin/match-formats`) je dostupná dokončeném
 
 Vyberte existující aktivní sport, název formátu, vyhodnocení a označení částí. **Součet skóre** dovoluje například dva poločasy s remízou nebo čtyři čtvrtiny bez remízy s prodloužením. **Počet vyhraných částí** potřebuje povinnou evidenci částí a počet potřebných vítězství; nepovoluje remízu, prodloužení, nájezdy ani pevný počet částí. Prázdný počet částí znamená neomezený počet. Skóre přátelské kontumace musí určit vítěze; soutěžní body se zde nenastavují.
 
-**Upravit formát** otevře konfiguraci. Použitý formát lze pouze přejmenovat. Změna pravidel nesmí zneplatnit připojený ročník; archivovaný nebo použitý ročník takovou změnu blokuje. Při konfliktu se rozepsaná data zachovají; **Zahodit úpravy a načíst aktuální stav** je výslovně nahradí serverovým stavem. Zápasy a výsledky patří do P5/P6.
+**Upravit formát** otevře konfiguraci. Použitý formát lze pouze přejmenovat. Změna pravidel nesmí zneplatnit připojený ročník; archivovaný nebo použitý ročník takovou změnu blokuje. Při konfliktu se rozepsaná data zachovají; **Zahodit úpravy a načíst aktuální stav** je výslovně nahradí serverovým stavem. Kalendář zápasů poskytuje P5 a výsledky dodá P6.
 
 ## Soutěže, ročníky a přihlášky — P4
 
@@ -24,7 +24,7 @@ Dokončený aktivní STANDARD ADMIN otevře **Soutěže a ročníky** (`/admin/c
 
 Vytvoření nebo přejmenování soutěže na této stránce aktualizuje výběr soutěží a zachová rozepsaný nový ročník včetně bodování, kontumací a kritérií. Samotný ročník uloží až **Vytvořit soutěžní ročník**.
 
-Pravidla i přihlášky sdílejí verzi ročníku. Při souběhu se rozepsané hodnoty zachovají a **Zahodit úpravy a načíst aktuální ročník** je výslovně nahradí serverovým stavem. Během úpravy pravidel jsou mutace přihlášek pozastavené, aby reload neztratil rozpracovaná pravidla. Po archivaci sezóny nebo historickém uzamčení zůstane čtení a přihlášené týmy; formát, pravidla a přihlášky jsou pouze ke čtení. Nová odlišná použitá pravidla vyžadují nový formát/ročník. P4 konfiguruje budoucí výpočty; samotné zápasy, výsledky a tabulky dodají P5/P6.
+Pravidla i přihlášky sdílejí verzi ročníku. Při souběhu se rozepsané hodnoty zachovají a **Zahodit úpravy a načíst aktuální ročník** je výslovně nahradí serverovým stavem. Během úpravy pravidel jsou mutace přihlášek pozastavené, aby reload neztratil rozpracovaná pravidla. Po archivaci sezóny nebo historickém uzamčení zůstane čtení a přihlášené týmy; formát, pravidla a přihlášky jsou pouze ke čtení. Nová odlišná použitá pravidla vyžadují nový formát/ročník. Naplánovaný soutěžní zápas drží formát ročníku a přihlášky obou týmů. Výsledky a výpočet tabulek dodá P6.
 
 ## Přihlášení a vlastní osoba
 
@@ -114,18 +114,32 @@ Přihlaste se vlastním povoleným STANDARD účtem na osobě schváleného zás
 
 ## Jeden trenér jako jediný uživatel — dostupný základ
 
-Stačí jeden STANDARD ADMIN, který si přiřadí trenérství, založí současně fotbalový i basketbalový tým a vede offline hráče. Druhý administrátor, hráčská přihlášení ani rodiče nejsou podmínkou. Další účty a vztahy přidá až podle skutečné potřeby přes P3 správu. Založení dítěte bez loginu nevyžaduje rodiče; jeho CHILD aktivace ano. Události, docházku a výsledky tento základ dosud neposkytuje.
+Stačí jeden STANDARD ADMIN, který si přiřadí trenérství, založí současně fotbalový i basketbalový tým a vede offline hráče. Druhý administrátor, hráčská přihlášení ani rodiče nejsou podmínkou. Další účty a vztahy přidá až podle skutečné potřeby přes P3 správu. Založení dítěte bez loginu nevyžaduje rodiče; jeho CHILD aktivace ano. Stejný účet může vést kalendář, nominace a docházku všech klubových týmů. Výsledky jsou součástí P6.
 
-## Navazující pracovní postupy — dosud plánované
+## Kalendář a sportovní oznámení
 
-| Klubový kontext | Povinná agenda navazujících balíčků |
+### Administrátor a trenér
+
+1. V **Kalendáři** zvolte **Vytvořit akci**, vyberte sezónu a typ. U tréninku nebo jiné akce označte zúčastněné klubové týmy. U zápasu vyberte domácí, hosty a formát. Soutěžní zápas převezme formát ročníku a obě strany v něm musí být přihlášené.
+2. Vyplňte termín v pražském čase, místo a případně uzávěrku dostupnosti. Prázdná uzávěrka znamená začátek akce. Uložte koncept a zvolte **Zveřejnit akci**. Aplikace přidá hráče se členstvím platným v den akce. Aktuální trenér všech zúčastněných klubových týmů může akci zveřejnit, měnit a zrušit.
+3. V sekci **Nominace** uložte návrhy jednotlivých hráčů a potom zvolte **Zveřejnit nominaci**. Hráči a rodiče uvidí poslední zveřejněné hodnoty a dotčeným příjemcům přijde oznámení. Pro další změnu návrh znovu uložte a zveřejněte.
+4. Od začátku akce vyplňte **Docházku**. U zápasu lze zvlášť evidovat nastoupení. Po konci lze akci označit za dokončenou. Její pozdější opravu zapisuje administrátor s důvodem.
+5. Budoucí účast může správce nebo příslušný trenér vyřadit s důvodem. Dalšího hráče s odpovídajícím členstvím přidáte přes **Přidat účastníka**. Obnovení vyřazené účasti vyžaduje administrátora a platné členství. Pokud změna členství koliduje s budoucí akcí, nejprve vyřešte účast na této akci.
+
+### Hráč a rodič
+
+V **Kalendáři** otevřete akci vlastního hráče nebo schváleného dítěte. V části **Dostupnost** vyberte odpověď a případně přidejte poznámku nebo omluvu. Uložte ji do uzávěrky. Po publikaci v detailu uvidíte nominaci a později záznam docházky. Rodič vidí odpovědi a účast svých schválených dětí. Dětský účet má stejnou sportovní možnost pro vlastní profil.
+
+V **Oznámeních** otevřete odkaz na příslušnou akci a zvolte **Označit jako přečtené**. Počet nepřečtených se aktualizuje. Nová akce, její změna nebo zrušení a zveřejnění nominace dorazí přímo do vlastní schránky.
+
+### Další etapy
+
+| Klubový kontext | Navazující agenda |
 | --- | --- |
-| Administrátor | P5 události/schránka; P6 dynamické statistiky, výsledky a výpočet pořadí; P7 předpisy, skutečné částečné úhrady/storna a splatnostní výzvy; P8 konverzace; P9 úplné HTTPS předání a obnova. |
-| Trenér | Publikovat TRAINING/MATCH/OTHER, číst dostupnost, připravit a publikovat nominaci, zvlášť zapsat skutečnou docházku/nastoupení, výsledek a statistiky; povolené konverzace a historie. Nominace nebude znamenat přítomnost. Samotné trenérství neudělí finance nebo správu rodičů. |
-| Hráč | Vlastní dostupnost/omluva, čtení nominace, docházky, výsledků a statistik, vlastní schránka a oprávněná komunikace. STANDARD navíc vlastní příspěvky; CHILD žádné finance ani finanční notifikace/počty. |
-| Rodič | Za schválené dítě dostupnost a omluva, čtení nominace, docházky, výsledků/statistik a příspěvků, výzvy před i po splatnosti a oprávněné konverzace. Platbu provede mimo aplikaci a skutečnou úhradu zaznamená ADMIN. |
-
-Notifikace a konverzace budou dvě samostatné funkce. ADMIN nebude automaticky číst cizí soukromé rozhovory. Tabulky se vypočtou z potvrzených výsledků podle konfigurovatelných pravidel pro oba sporty; roadmapa nepředstavuje dokončenou implementaci.
+| Administrátor | P6 výsledky, statistiky a pořadí, P7 příspěvky a platby, P8 komunikace, P9 předání. |
+| Trenér | Zápis výsledků a statistik, sportovní historie a povolené konverzace. |
+| Hráč | Výsledky, statistiky a komunikace, pro STANDARD také příspěvky. |
+| Rodič | Výsledky a statistiky dítěte, příspěvky a výzvy před i po splatnosti a konverzace. |
 
 ## Upgrade a obvyklé situace
 

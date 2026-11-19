@@ -122,8 +122,10 @@ test("rodiče dvou dětí, omezené přihlášení a trvalé odvolání starých
     expect(childContext).toMatchObject({ ownPlayerId: players[0].id, capabilities: [], children: [] });
     expect(childContext.teamContexts.map((t: { teamSeasonId: string }) => t.teamSeasonId)).toEqual([teams[0].id]);
     expect((await get(child, "/players/" + players[1].id)).status()).toBe(404);
-    for (const path of ["/me/fees", "/fees/" + randomUUID(), "/payments/" + randomUUID(), "/fees/export", "/notifications", "/notifications/unread-count", "/me/children", "/admin/users"]) expect((await get(child, path)).status()).toBe(403);
-    await mutate("POST", "/notifications/" + randomUUID() + "/read", {}, 403, child);
+    for (const path of ["/me/fees", "/fees/" + randomUUID(), "/payments/" + randomUUID(), "/fees/export", "/me/children", "/admin/users"]) expect((await get(child, path)).status()).toBe(403);
+    expect((await get(child, "/notifications")).status()).toBe(200);
+    expect((await get(child, "/notifications/unread-count")).status()).toBe(200);
+    await mutate("POST", "/notifications/" + randomUUID() + "/read", {}, 404, child);
     await mutate("PUT", "/me/person", { firstName: "Změna", lastName: "Zakázaná", birthDate: "2000-01-01" }, 403, child);
     await parentPage.goto("/my-children"); await expect(parentPage.getByRole("heading", { name: "Moje děti", exact: true })).toBeVisible();
     await expect(parentPage.getByRole("article")).toHaveCount(2);

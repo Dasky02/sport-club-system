@@ -1,6 +1,6 @@
 # Autentizace a návrh oprávnění
 
-**Stav E0 + P1–P3:** vedle identitního a týmového základu jsou implementované ADMIN účty/person-link/role/type/enabled/activate, guardian grant/revoke, Moje děti a omezený CHILD login se sportovním čtením. V1–V4 mají stále 12 tabulek, V4 přidává neveřejné auth_revision a guardy. Události, výsledky, finance, notifikace a komunikace jsou plánované. Provedené běhy jsou v [ověření](verification.md).
+**Stav E0 + P1–P5.** Aktuální účet, týmová přiřazení a rodičovské vazby určují přístup ke kalendáři, účasti a sportovním oznámením. Výsledky, finance a komunikace patří do dalších etap. Provedené běhy jsou v [ověření](verification.md).
 
 PENDING má pouze povolený auth/onboarding rozsah a prázdný kontext. Dokončený STANDARD ADMIN má MANAGE_CLUB, MANAGE_SPORTS, MANAGE_SEASONS, MANAGE_TEAMS, MANAGE_PLAYERS, MANAGE_MEMBERSHIPS, MANAGE_ACCOUNTS a MANAGE_GUARDIANS. ADMIN není automaticky trenér ani rodič všech dětí. USER/CHILD nemají globální správní schopnosti. OwnPlayerId spojuje stejnou osobu; teamContexts sjednotí dnešní vlastní hráčské, STANDARD trenérské a STANDARD rodičovské vztahy bez duplicit. Children obsahuje pouze vlastní neodvolané vazby s READ_CHILD; CHILD má children vždy [].
 
@@ -8,13 +8,20 @@ P2/P3 členství platí `[validFrom,validTo)`, NULL končí sezónou. Pro běžn
 
 CHILD vyžaduje USER, vlastní osobu/hráče a alespoň jednoho schváleného enabled STANDARD rodiče při aktivaci, loginu i každém requestu. Osoba rodiče bez účtu nebo disabled rodič nestačí. Jedna odvolaná vazba při jiné kvalifikované vazbě účet neblokuje; ztráta poslední nastaví enabled=false a zvýší auth_revision. Regrant a obnovení rodiče samy dítě nezapnou. Session porovnává původní revizi; ani nikdy nepoužitá stará cookie nesmí ožít po opětovné aktivaci. Vlastní onboarding/setup obnoví pouze očekávanou vlastní revizi. V4 zakazuje dosavadní unsupported CHILD z P2 bez domýšlení údajů.
 
-Server má pro CHILD allowlist metody a cesty jen pro dostupné vlastní a scoped sportovní GET + auth/veřejné informace. Všechny mutace osoby, účtu, rolí/vazeb a veškeré finanční/notifikační cesty včetně součtů, exportů a read/count jsou 403. P3 ještě nemá finance/notifikace: jde o předběžnou ochranu, nikoli jejich funkční akceptaci. UI brána toto pravidlo nenahrazuje.
+Server povoluje CHILD vlastní sportovní čtení, dostupnost vlastního hráče, vlastní sportovní schránku a označení doručení jako přečteného. Mutace osoby, účtu, rolí a vazeb i všechny finanční cesty jsou zakázané. Schránka filtruje sportovní typy a při každém čtení, počítání i označení ověřuje příjemce a přístup k akci.
 
 Person-link, změny role/typu/přístupu, aktivace a guardian grant/revoke vyžadují odůvodnění. Správní mutace používají klubový výhradní zámek před fresh auth; běžná čtení sdílený zámek. Posledního enabled STANDARD COMPLETE ADMIN nelze odebrat. STANDARD→CHILD odmítá ADMIN, jakoukoli zachovanou trenérskou historii a neodvolané vazby jako rodič; výsledná změna typu je disabled. Použitá osoba účtu se nepřepojuje. Vlastní zástupce, CHILD zástupce a cyklický řetězec se odmítají. Následující úplná matice dále obsahuje dosud neimplementované operace.
 
 ## P4: formáty a soutěžní konfigurace
 
 `/match-formats`, `/competitions`, `/competition-seasons` a všechny jejich podzdroje vyžadují dokončeného enabled STANDARD ADMIN. UI používá existující MANAGE_CLUB, backend účet ověří sám. Detaily, seznamy, konfigurace i přihlášky včetně počtů jsou správní údaje; CHILD allowlist se nerozšiřuje. Čtení bere sdílený klubový zámek, mutace výhradní před fresh auth; CSRF a audit ve stejné transakci jsou povinné. Verze ročníku chrání společně pravidla i přihlášky. Archivovaný nebo historicky uzamčený ročník je pouze ke čtení; administrátorské přejmenování samotné soutěže/formátu nemění pravidla. Nejde o budoucí sportovní čtení výsledků/tabulek ostatních kontextů z P5/P6.
+
+## P5 — akce a schránka
+
+- ADMIN spravuje všechny akce. Trenér může upravit a zveřejnit akci či nominaci, pokud aktuálně vede všechny dotčené klubové týmy. Na vícetýmové akci vidí záznamy účastníků a zapisuje docházku v rámci svěřených týmů.
+- Hráč a STANDARD rodič vidí pouze záznam vlastního účastníka nebo dítěte s aktivní schválenou vazbou. Mají přístup ke zveřejněným hodnotám a mohou odpovědět do uzávěrky. Koncepty a připravovaná nominace jsou v režimu správy.
+- Běžný trenér může opravovat docházku do dokončení akce. Výjimku v dostupnosti a opravy po dokončení zaznamenává ADMIN s důvodem. Účet bez týmu či vztahu nevidí odpovídající akce ani jejich počty.
+
 
 ## Přihlašovací základ
 

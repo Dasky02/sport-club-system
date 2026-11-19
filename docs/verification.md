@@ -1,5 +1,12 @@
 # Ověření projektu
 
+## 19. 11. 2026 — P5 kalendář, účast a sportovní schránka
+
+- Frontend na Node 24.14.0: lint, TypeScript, produkční Next build a 107 testů prošly. Nové testy ověřují pražské časové hranice včetně změny času a aktualizaci schránky po označení oznámení.
+- Backend na Java 17: kompilace a 30 unit testů prošly s lokálním Byte Buddy javaagentem. PostgreSQL integrační testy jsou součástí CI a používají samostatný kontejner. Lokální Docker daemon na kontrolu neodpověděl.
+- Integrační případy pokrývají čistou migraci a upgrade V7 → V8, scope trenéra, rodiče a dítěte, verze, uzávěrku, nominaci před a po zveřejnění, čtení oznámení, změny členství, docházku a pravidla stran zápasu.
+- Prošly kontroly veřejného obsahu, konfigurace všech tří Compose sestav a místní regenerace ER diagramu. Playwright s živou sestavou ani produkční nasazení v tomto běhu neproběhly.
+
 ## 10. 11. 2026 — kompatibilita Testcontainers přes dependency management Spring Boot
 
 [První CI PR #27](https://github.com/Dasky02/sport-club-system/actions/runs/42821726828) nad `c4a3a05` skončilo: Backend verify **FAIL**, Frontend checks a Public content and Compose **PASS**. Kompilace backendu prošla, ale Testcontainers 1.20.4 při inicializaci Dockeru poslal API 1.32; runner Ubuntu 26.04 jej odmítl HTTP 400 (minimum 1.40). Maven uvedl 41 testů, 0 assertion failures a 11 errors při startu testovacích tříd; jejich PostgreSQL scénáře se neprovedly. Starší úspěšné CI nad main `0573a6c` běželo na Ubuntu 24.04 s Dockerem 28.0.4. Shellové nastavení API 1.44 z lokálních běhů 6. 11. nebylo součástí repozitáře.

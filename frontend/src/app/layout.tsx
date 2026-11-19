@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 import "./club.css";
+import "./events.css";
 
 export const metadata: Metadata = {
   title: { default: "Sport Club System", template: "%s | Sport Club System" },
