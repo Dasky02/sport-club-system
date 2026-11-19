@@ -1,0 +1,85 @@
+.site-header nav { flex-wrap: wrap; row-gap: .55rem; }
+
+.event-page { display: grid; gap: 1rem; }
+.event-page h1, .event-page h2, .event-page h3, .event-page p { margin: 0; }
+.event-page > .back-link { justify-self: start; margin: 0; }
+.event-heading, .event-actions, .calendar-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .7rem 1rem;
+}
+.event-heading, .calendar-controls { justify-content: space-between; }
+.event-heading h1 { overflow-wrap: anywhere; }
+.event-heading .pill { white-space: normal; }
+.event-actions .field { margin-bottom: 0; font-size: .82rem; }
+.calendar-controls { margin-bottom: 1rem; }
+.calendar-controls h2 { font-size: 1.1rem; }
+.calendar-week, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.calendar-week { color: var(--muted); font-size: .84rem; padding-bottom: .5rem; text-align: center; }
+.calendar-grid { padding: 0; margin: 0 0 1rem; list-style: none; border-block-start: 1px solid var(--line); border-inline-start: 1px solid var(--line); }
+.calendar-day, .calendar-blank {
+  min-height: 6rem;
+  min-width: 0;
+  padding: .45rem;
+  border-block-end: 1px solid var(--line);
+  border-inline-end: 1px solid var(--line);
+}
+.calendar-blank { background: #f5f6f1; }
+.calendar-day time { display: inline-block; padding: .1rem .35rem; margin-bottom: .2rem; font-size: .8rem; }
+.calendar-today { border-radius: .3rem; background: var(--green); color: white; }
+.calendar-event {
+  display: grid;
+  gap: .13rem;
+  background: #edf3ee;
+  border-inline-start: 3px solid #4d735a;
+  border-radius: .25rem;
+  padding: .35rem;
+  margin-bottom: .27rem;
+  line-height: 1.35;
+  font-size: .77rem;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+.calendar-event:hover { text-decoration: underline; }
+.calendar-event span { font-size: .69rem; }
+.calendar-match { border-color: #586bb0; background: #edf0fa; }
+.calendar-other { border-color: #92663d; background: #f8efe5; }
+.event-fieldset { min-inline-size: 0; margin: 0; border: 0; padding: 0; }
+.event-team-picker { border: 1px solid var(--line); border-radius: .5rem; margin: 0 0 1rem; padding: .6rem 1rem; }
+.event-team-picker .checkbox-field { margin-bottom: .45rem; }
+.event-page textarea {
+  padding: .7rem .8rem;
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: #fbfcf9;
+  border: 1px solid #c7d2c9;
+  border-radius: .5rem;
+}
+.event-meta { display: grid; gap: .75rem 1.2rem; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr)); margin: .5rem 0 1rem; }
+.event-meta dt, .notice-meta { color: var(--muted); font-size: .83rem; }
+.event-meta dd { margin: .15rem 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.event-match { padding-bottom: .65rem; }
+.event-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.event-description + .event-actions { margin-block-start: 1rem; }
+.event-expand > summary { font-weight: 650; cursor: pointer; }
+.event-expand[open] > summary { margin-bottom: .9rem; }
+.event-participants { display: grid; gap: 1rem; }
+.event-participant > header p { font-size: .85rem; }
+.event-part-columns { display: grid; gap: 1.1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 1rem 0; }
+.event-part-columns h4 { margin: 0 0 .4rem; }
+.event-part-columns section { border-top: 1px solid var(--line); padding-top: .7rem; }
+.event-part-form { margin-top: .9rem; }
+.notice-list { display: grid; gap: .75rem; list-style: none; margin: 0; padding: 0; }
+.notice { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+.notice h2 { font-size: 1.13rem; margin: .2rem 0; overflow-wrap: anywhere; }
+.notice-unread { border-inline-start: 4px solid var(--green); }
+
+@media (max-width: 790px) {
+  .event-part-columns { grid-template-columns: minmax(0, 1fr); }
+  .calendar-week, .calendar-blank, .calendar-day:not(.has-events) { display: none; }
+  .calendar-grid { display: block; border: 0; }
+  .calendar-day { min-height: 0; border-inline-end: 0; }
+  .calendar-event { padding: .55rem; font-size: .9rem; }
+}

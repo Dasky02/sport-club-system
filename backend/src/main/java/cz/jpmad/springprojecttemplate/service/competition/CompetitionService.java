@@ -81,6 +81,9 @@ public class CompetitionService {
     public SeasonResponse updateSeason(UUID actor,UUID id,UpdateSeasonRequest r) {
         actor(actor,true); var s=data.season(id); long version=version(r.version(),s); open(s);
         UUID formatId = r.matchFormatId() == null ? s.matchFormatId() : r.matchFormatId();
+        if (!formatId.equals(s.matchFormatId()) && data.hasScheduledMatch(id,null)) {
+            conflict("CONFIGURATION_LOCKED","Formát ročníku používá naplánovaný zápas.");
+        }
         var format = formats.get(formatId);
         if (!s.sportId().equals(format.sportId())) {
             throw ApiException.invalidField("matchFormatId", "Formát musí patřit stejnému sportu.");
@@ -109,6 +112,7 @@ public class CompetitionService {
     public SeasonSummary removeEntry(UUID actor,UUID id,UUID team,VersionRequest r) {
         actor(actor,true); var s=data.season(id); long version=version(r.version(),s); open(s);
         if (!data.entryExists(id,team)) throw new NoSuchElementException();
+        if (data.hasScheduledMatch(id,team)) conflict("CONFIGURATION_LOCKED","Přihlášku používá naplánovaný zápas.");
         if (data.incrementVersion(id,version)!=1) conflict("OPTIMISTIC_LOCK_CONFLICT","Ročník byl mezitím změněn.");
         data.removeEntry(id,team);
         audit.recordCompetitionEntry(actor,"COMPETITION_ENTRY_REMOVED",id,team); return data.season(id);

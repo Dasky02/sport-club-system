@@ -1,6 +1,6 @@
 # REST kontrakt: implementované P1–P4 a navazující plán
 
-**E0 + P1–P4:** identita/setup/sporty, ADMIN osoby/sezóny/týmy/hráči/členství, účty/rodiče, scoped soupisky/historie a omezené CHILD, formáty, soutěže, ročníky, datová pravidla a přihlášky mají implementaci. Události, výsledky a výpočet pořadí/statistik, finance, notifikace a komunikace jsou plánované v P5–P9. [Ověření](verification.md) zaznamenává provedené běhy; [DBML](sport-club.dbml) popisuje celý cílový model.
+**E0 + P1–P5:** identita, setup, sporty, sezóny, týmy, hráči, členství, účty a rodiče, soutěžní konfigurace, kalendář, účast a sportovní oznámení mají implementaci. Výsledky, statistiky, pořadí, finance, splatnostní notifikace a konverzace patří do dalších etap. [Ověření](verification.md) uvádí provedené běhy. [DBML](sport-club.dbml) popisuje cílový model.
 
 ## Implementované adresování a autentizace
 
@@ -139,7 +139,7 @@ STANDARD children obsahuje jen vlastní neodvolané vazby `{playerId,displayName
 | ADMIN PATCH `/player-memberships/{id}`, `/coach-memberships/{id}` | Úplný interval `{validFrom,validTo}` včetně explicitního null konce; dvojice a ID se nemění. |
 | ADMIN GET `/admin/coach-candidates` | Page `{id,username,firstName,lastName}` jen způsobilých účtů, žádné heslo nebo správa rolí. |
 
-TeamSeasonResponse je `{id,teamId,seasonId,sportId,sportName,teamName,displayName,isClubTeam,seasonName,startsOn,endsOn,archived}`. Vlastní i externí týmy sdílejí API, soupeř však nemá interní členství. Intervaly jsou `[validFrom,validTo)`, NULL končí sezónou. Musí celé ležet v sezóně, stejná dvojice se nesmí překrývat; sousední intervaly a souběh v jiném týmu jsou dovolené. Archivace uchová read při existujícím vztahu a zamkne změny. Žádné automatické událostní přestupy ještě neexistují: P5 doplní transakční kontrolu tehdy vznikajících účastí.
+TeamSeasonResponse je `{id,teamId,seasonId,sportId,sportName,teamName,displayName,isClubTeam,seasonName,startsOn,endsOn,archived}`. Vlastní i externí týmy sdílejí API, soupeř však nemá interní členství. Intervaly jsou `[validFrom,validTo)`, NULL končí sezónou. Musí celé ležet v sezóně, stejná dvojice se nesmí překrývat; sousední intervaly a souběh v jiném týmu jsou dovolené. Archivace uchová read při existujícím vztahu a zamkne změny. Změna členství, která by zneplatnila aktivní účast v budoucí publikované akci, vrátí `409 EVENT_MEMBERSHIP_CONFLICT`. Správce může nejdříve hráče z dotčené akce vyřadit.
 
 Členství PATCH je výslovná výjimka z partial PATCH: oba datumové klíče jsou povinné, aby vymazání konce bylo záměrné. Seasons/teams partial PATCH rozlišuje absent a explicitní null; null se odmítne a mění se pouze zaslaná pole. Tabulky P2 nemají optimistic version; souběh řeší klubový zámek, stav a DB constraints. Všechna data/oprávnění jedné operace používají stejný kalendářní den.
 
@@ -172,24 +172,32 @@ Posledního enabled STANDARD COMPLETE ADMIN nelze demotovat, zakázat ani konver
 
 Child login a každý další request ověří enabled, USER/CHILD, vlastní hráče a aktuálně aktivního rodiče. Ztráta jedné z více kvalifikovaných vazeb dítě neblokuje; ztráta poslední ano. Regrant ani opětovné povolení rodiče dítě automaticky nezapnou: vždy je nutná samostatná ADMIN aktivace. Sportovní profil, členství a historie se nemažou. První heslo se předává soukromě mimo veřejný projekt; server jej nevrací a frontend jej maže při odeslání i po chybě, bez storage/URL.
 
-CHILD allowlist dovoluje jen implementované vlastní a scoped sportovní GET (auth/me, CSRF, me/person, me/context, team-seasons/detail/roster, players/detail/memberships), veřejné info/health/dokumentaci a auth operace. Ostatní metody/cesty jsou 403: změna osoby, setup, správní API, děti a zejména všechny fee/payment/export/notifikační cesty včetně count/read. Toto je předběžná finanční bezpečnostní hranice, **nikoli implementace financí nebo notifikací**. Budoucí sportovní zápisy a schránka vyžadují rozšíření allowlistu a odpovídající policy/testy v příslušném balíčku.
+CHILD allowlist dovoluje implementované vlastní a scoped sportovní GET, zápis vlastní dostupnosti, vlastní sportovní schránku a označení doručení jako přečteného. Zachovává veřejné informace a auth operace. Mutace osoby, správní operace, rodičovské a finanční endpointy včetně součtů a exportů jsou zakázané.
 
 Frontend `/admin/accounts`, `/admin/players/[playerId]/guardians`, `/my-children` a `/my-children/[playerId]` používá skutečné API. Dětská navigace nabízí vlastní profil/sportovní čtení; osobní údaje jsou pouze ke čtení, datum narození a role se samoobslužně nemění. Finance ani rodičovské/správní stránky nenabízí.
 
-## E2 — události, účast a notifikace
+## P5 — události, účast a sportovní oznámení
 
-| UI | Plánované API |
+Veřejný prefix API je `/api`. Změnové operace vyžadují session a CSRF. Všechny verze jsou řetězce. Neaktuální verze vrací `409 OPTIMISTIC_LOCK_CONFLICT`. Seznamy používají `{items,page,size,totalElements,totalPages}`.
+
+| UI | Implementované API |
 | --- | --- |
-| `/calendar`, `/events/[eventId]` | Scoped `GET /events?teamSeasonId&from&to&type`, `GET /events/{id}`; typ TRAINING/MATCH/OTHER, stav DRAFT/PUBLISHED/CANCELLED/COMPLETED |
-| Vytvoření/editace akce | ADMIN nebo trenér všech dotčených týmů: POST/PATCH `/events`, POST `/events/{id}/publish`, `/cancel`; skutečná pole title,description,startsAt,endsAt,location,availabilityDeadline,seasonId,type a teamSeasonIds |
-| Dostupnost na detailu | Vlastní hráč nebo STANDARD rodič: `PUT /events/{id}/participants/{playerId}/availability {version,availability,availabilityComment}`; UNKNOWN/AVAILABLE/UNAVAILABLE |
-| Nominace | ADMIN/trenér: `PUT /events/{id}/nomination` s verzovanými účastníky, `POST .../nomination/publish` s verzí akce; NOT_SELECTED/SELECTED/RESERVE |
-| Docházka | ADMIN/trenér: `PUT /events/{id}/participants/{playerId}/attendance {version,attendance,attendanceComment,played}`; PRESENT/ABSENT/EXCUSED/LATE, played jen MATCH |
-| `/notifications` | `GET /notifications`, `/notifications/unread-count`, `GET /notifications/{notificationId}`, `POST /notifications/{notificationId}/read` → 204 |
+| `/calendar`, `/events/[eventId]` | `GET /events?teamSeasonId&from&to&type&page&size`, `GET /events/{id}`. Interval se překrývá s dobou akce, horní mez je exkluzivní. Časy jsou ISO 8601 s offsetem. |
+| `/calendar/new` | `GET /events/options` pro STANDARD. `POST /events` přijímá `{seasonId,type,teamSeasonIds,schedule,match}` a vrací 201 s detailem. |
+| Úprava a životní cyklus | `PATCH /events/{id} {version,schedule}`, `POST .../publish`, `.../cancel`, `.../complete` s `{version}`. `DELETE /events/{id} {version}` zahodí výhradně koncept a vrací 204. |
+| Dostupnost | `PUT /events/{id}/participants/{playerId}/availability {version,availability,availabilityComment,reason?}`. Hodnoty UNKNOWN/AVAILABLE/UNAVAILABLE. |
+| Nominace | `PUT /events/{id}/nomination {version,entries:[{playerId,version,nomination}]}`, `POST .../nomination/publish {version}`. NOT_SELECTED/SELECTED/RESERVE. |
+| Docházka | `PUT /events/{id}/participants/{playerId}/attendance {version,attendance,attendanceComment,played,reason?}`. PRESENT/ABSENT/EXCUSED/LATE, played jen MATCH. |
+| Účastníci | `GET /events/{id}/eligible-participants?teamSeasonId`, `POST .../participants {version,teamSeasonId,playerId}`, `POST .../participants/{playerId}/withdraw` a `.../restore {version,reason}`. |
+| `/notifications` | `GET /notifications?page&size`, `GET /notifications/unread-count`, `GET /notifications/{id}`, `POST /notifications/{id}/read` → 204. |
 
-Účast má PK `(event_id,player_id)`; každá změna řádku kontroluje jeho version a smí měnit jen příslušná pole. Nezapsaná hodnota je null, nikoli UNKNOWN/NOT_SELECTED/false. Docházka se neodvozuje z dostupnosti ani nominace; played=true vyžaduje PRESENT/LATE. Koncepty a nepublikovanou nominaci hráč/rodič nevidí.
+`schedule` obsahuje `title,description,startsAt,endsAt,location,availabilityDeadline`. `match` je pro MATCH povinný a obsahuje `homeTeamSeasonId,awayTeamSeasonId,matchFormatId,competitionSeasonId`. Pro přátelský zápas je ročník null. Sezóna, typ a strany jsou po vytvoření pevné. Detaily vracejí `{event,teams,match,participants}` a pro zápas odvozené názvy stran, formátu a soutěže. Pro trénink a klubovou akci je třeba alespoň jeden klubový tým.
 
-`notification_deliveries` má PK `(notification_id,recipient_id)`, nemá deliveryId. Recipient přečtení se bere výhradně ze session; klient jej neposílá. Opakované read je bezpečně 204 a zachová první readAt. CHILD nedostane FEE_DUE_SOON/FEE_OVERDUE ani jejich počty; otevření cíle starého oznámení nepřeskakuje aktuální autorizaci.
+Kalendář vrací ADMIN všechny akce, trenérovi akce aktuálně svěřených týmů a hráči nebo STANDARD rodiči zveřejněné akce s vlastní nebo schválenou účastí. Editaci akce a publikaci nominace provádí ADMIN nebo trenér všech jejích klubových týmů. Trenér vidí a zapisuje docházku v rámci svého svěřeného týmu. Dostupnost do uzávěrky zapisuje hráč nebo oprávněný rodič. Výjimka po uzávěrce a oprava docházky dokončené akce vyžadují ADMIN, důvod a audit.
+
+Data dostupnosti, návrhu nominace, zveřejněné nominace a docházky jsou samostatná. Hráč a rodič až do dalšího zveřejnění vidí poslední zveřejněnou hodnotu. Nezapsaná hodnota je null. Nastoupení vyžaduje u hodnoty true přítomnost nebo pozdní příchod. Účast se při publikaci založí podle soupisky platné v den akce. Všechny dny a hranice sezóny používají Europe/Prague.
+
+Příjemce schránky se bere ze session. Oznámení, doručení a změna jsou v jedné transakci. Oznámení obsahuje typ, název a odkaz na akci. Deduplikační klíč je odvozen od verze události a typu. Počty, detaily i přečtení filtrují příjemce a přístup k akci. Opakované přečtení zachová první `readAt`. Finanční typy jsou vyhrazené pro P7.
 
 ## P4 — formáty zápasu
 

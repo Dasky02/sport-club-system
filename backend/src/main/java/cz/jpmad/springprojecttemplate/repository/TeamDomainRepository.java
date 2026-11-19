@@ -45,7 +45,22 @@ public class TeamDomainRepository {
     public Page<SeasonResponse> seasons(int page,int size) { return page("SELECT * FROM seasons",params(),"starts_on DESC,id",page,size,SEASON); }
     public SeasonResponse season(UUID id) { return one("SELECT * FROM seasons WHERE id=:id",params().addValue("id",id),SEASON); }
     // Later event/fee deliveries must extend this check with their season references.
-    public boolean seasonUsed(UUID id) { return exists("SELECT (SELECT count(*) FROM team_seasons WHERE season_id=:id)+(SELECT count(*) FROM competition_seasons WHERE season_id=:id)",params().addValue("id",id)); }
+    public boolean blocksMembershipChange(UUID membershipId, UUID team, UUID player, LocalDate from, LocalDate to,
+                                          java.time.OffsetDateTime now) {
+        return exists("""
+                SELECT count(*) FROM event_participants ep JOIN events e ON e.id=ep.event_id
+                WHERE ep.player_id=:player AND ep.team_season_id=:team AND ep.withdrawn_at IS NULL
+                AND e.status='PUBLISHED' AND e.starts_at>:now
+                AND NOT (daterange(:from,:to,'[)') @> (e.starts_at AT TIME ZONE 'Europe/Prague')::date)
+                AND NOT EXISTS (
+                    SELECT 1 FROM player_team_memberships m WHERE m.id<>:membership AND m.player_id=ep.player_id
+                    AND m.team_season_id=ep.team_season_id
+                    AND daterange(m.valid_from,m.valid_to,'[)') @> (e.starts_at AT TIME ZONE 'Europe/Prague')::date
+                )
+                """,params().addValue("membership",membershipId).addValue("team",team).addValue("player",player)
+                .addValue("from",from).addValue("to",to).addValue("now",now));
+    }
+    public boolean seasonUsed(UUID id) { return exists("SELECT (SELECT count(*) FROM team_seasons WHERE season_id=:id)+(SELECT count(*) FROM competition_seasons WHERE season_id=:id)+(SELECT count(*) FROM events WHERE season_id=:id)",params().addValue("id",id)); }
     public boolean seasonNameUsed(String name,UUID except) { return exists("SELECT count(*) FROM seasons WHERE name=:name AND id<>:id",params().addValue("name",name).addValue("id",except)); }
     public void insertSeason(UUID id,String name,LocalDate from,LocalDate to) { jdbc.update("INSERT INTO seasons(id,name,starts_on,ends_on) VALUES(:id,:name,:f,:t)",params().addValue("id",id).addValue("name",name).addValue("f",from).addValue("t",to)); }
     public void updateSeason(UUID id,String name,LocalDate from,LocalDate to) { jdbc.update("UPDATE seasons SET name=:name,starts_on=:f,ends_on=:t WHERE id=:id",params().addValue("id",id).addValue("name",name).addValue("f",from).addValue("t",to)); }

@@ -2,6 +2,14 @@
 
 Tento dokument a [DBML](sport-club.dbml) popisují **cílový model 38 tabulek pro PostgreSQL 16**. V1–V4 mají 12 tabulek, V5 přidává match_formats a V6 šest soutěžních tabulek: celkem 19, dalších 19 je plán. P1–P4 dodávají členský základ a soutěžní konfiguraci, nikoli hotovou klubovou aplikaci nebo uzavřenou úplnou akceptaci E1/E3. Jedna instalace má jeden klub a více databázových sportů; každý tým právě jeden sport. [Požadavky](requirements.md) a [ověření](verification.md) oddělují rozsah a skutečné důkazy.
 
+## P5 — kalendář a sportovní schránka (V8)
+
+V8 přidává šest tabulek `events`, `event_teams`, `event_participants`, `matches`, `notifications` a `notification_deliveries`. Schéma obsahuje 25 z 38 tabulek cílového modelu. Zápas používá formát a volitelně soutěžní ročník z P4. Výsledkové revize, statistiky a vazby na příspěvky doplní P6 a P7.
+
+Při prvním zveřejnění se vytvoří soupiskový snímek podle pražského dne začátku. Pokud je hráč současně v několika týmech akce, P5 vybere tým stabilně podle nejnižšího UUID sezónního týmu. Posun akce se odmítne, pokud některému aktivnímu účastníkovi končí členství před novým termínem. Vypuštění takového účastníka je samostatná auditovaná operace, která umožní pozdější změnu členství. Hráče přidaného do týmu až po publikaci správce připojí výslovně podle členství ke dni akce.
+
+`nomination` uchovává návrh, `published_nomination` hodnotu dostupnou hráči a rodiči. Doručení vzniká společně se změnou akce nebo zveřejněním nominace pod klubovým zámkem. Vazby na soutěžní ročník a přihlášky drží konfiguraci stran evidovaného zápasu. Nedokončený koncept lze zahodit. Publikovaná, zrušená a dokončená akce se zachovává pro historii.
+
 ## P4 — V5 až V7
 
 V5 realizuje navržené match_formats, V6 competitions, competition_seasons, competition_point_rules, competition_forfeit_rules, competition_ranking_criteria a competition_entries. Přidává FK/indexy, UUID, bigint verze, jmenný EXCLUDE guard proti překryvům inkluzivních rozsahů a triggery pro stejný sport/sezónu, neměnnou identitu, archivaci a historické uzamčení rodiče i pravidel/přihlášek. Bodovací pravidla se validují vůči vybranému formátu a všechny části konfigurace se zapisují v jedné transakci. V7 povoluje výměnu formátu stejného sportu v otevřeném nepoužitém ročníku a zachovává ochranu archivovaných a uzamčených ročníků. Žádný ručně spuštěný SQL seed není potřebný pro přidání soutěže nebo sportu. V1–V5 se při V6 nepřepisují. Uzamčení při prvním výsledku dodá až P5/P6; jeho guardy jsou již přítomné. Čistá instalace a upgrade se ověřují pouze na izolovaných testovacích DB, viz [ověření](verification.md); běžná uživatelova DB nebyla kontrolována ani měněna. Při neřízeném ručním DDL je před nasazením nutné individuálně porovnat schéma a Flyway historii; migrace nic nepřebírá pomocí baseline.
@@ -84,7 +92,7 @@ Vztahy se u účtu STANDARD mohou kombinovat: trenér může být také rodičem
 
 **Implementovaný setup P1:** veřejná registrace vždy vytvoří USER a první registrant se automaticky nestává administrátorem. Provozovatel se přihlásí povoleným účtem STANDARD a provede jednorázový setup s instalačním tokenem ze soukromého prostředí nasazení. `CLUB_SETUP_TOKEN` je soukromá konfigurace backendu; prázdná jej vypíná. Token nemá výchozí hodnotu a neukládá se do DB ani logů. Pod zámkem `club FOR UPDATE` server ověří token, dosud nedokončený setup a absenci prvního administrátora; atomicky přidělí tomuto účtu ADMIN, zapíše `club.setup_completed_at`, `setup_completed_by` a audit. Obě setup pole jsou buď prázdná, nebo vyplněná společně. Souběžný či opakovaný setup nesmí založit dalšího admina. CHILD setup provést nemůže.
 
-Jediný provozovatel následně pod tímto účtem založí sport, sezónu a tým a přiřadí sebe jako trenéra; nepotřebuje druhého uživatele, samostatnou osobu administrátora ani rodičovský vztah ke svěřencům. Změna role se projeví v aktuálním serverovém vyhodnocení session. P1/P2 tento průchod poskytují až po tým, hráče a vlastní trenérské přiřazení; události a další sportovní agenda jsou navazující práce.
+Jediný provozovatel následně pod tímto účtem založí sport, sezónu a tým a přiřadí sebe jako trenéra; nepotřebuje druhého uživatele, samostatnou osobu administrátora ani rodičovský vztah ke svěřencům. Změna role se projeví v aktuálním serverovém vyhodnocení session. P1–P3 poskytují tým, hráče a vlastní trenérské přiřazení. P5 přidává dostupný kalendář, účast a schránku.
 
 Rodičovské vazby schvaluje administrátor a lze je odvolat. Odvolání ukončí oprávnění k dítěti, pokud neexistuje jiný platný důvod přístupu.
 

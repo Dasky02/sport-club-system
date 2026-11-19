@@ -14,6 +14,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   STATE_CONFLICT: "Akce není v aktuálním stavu povolena. Ověřte aktuální stav.",
   CHILD_ACTIVATION_CONFLICT: "Dětský účet vyžaduje vlastní hráčský profil a schváleného rodiče s povoleným běžným účtem.",
   LAST_ADMIN_REQUIRED: "Klub musí mít alespoň jednoho povoleného administrátora s dokončeným profilem.",
+  EVENT_MEMBERSHIP_CONFLICT: "Nejprve vyřaďte hráče z dotčených budoucích akcí.",
   MEMBERSHIP_OVERLAP: "Interval se překrývá s jiným členstvím stejného hráče nebo trenéra v tomto týmu.",
   CONFIGURATION_LOCKED: "Použité nebo archivované údaje již nelze tímto způsobem měnit.",
   VALIDATION_ERROR: "Zkontrolujte vyplněné údaje a označená pole.",

@@ -117,5 +117,11 @@ public class CompetitionRepository {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM competition_entries WHERE competition_season_id=:id AND team_season_id=:team)",params(id).addValue("team",team),Boolean.class));
     }
     public void addEntry(UUID id,UUID team) { jdbc.update("INSERT INTO competition_entries VALUES(:id,:team)",params(id).addValue("team",team)); }
+    public boolean hasScheduledMatch(UUID id,UUID team) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM matches WHERE competition_season_id=:id
+                    AND (CAST(:team AS uuid) IS NULL OR :team IN (home_team_season_id,away_team_season_id)))
+                """,params(id).addValue("team",team),Boolean.class));
+    }
     public void removeEntry(UUID id,UUID team) { jdbc.update("DELETE FROM competition_entries WHERE competition_season_id=:id AND team_season_id=:team",params(id).addValue("team",team)); }
 }
