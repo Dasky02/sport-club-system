@@ -129,17 +129,22 @@ describe("P4 soutěže a ročníky", () => {
     expect(mutation).toHaveLength(1);
     expect(mutation[0].headers?.["X-CSRF-TOKEN"]).toBe("csrf");
   });
-  it("409 zachová celé pravidlo i přesnou version a reload je výslovný", async () => {
+  it("ukládá vybraný formát s pravidly a při 409 zachová obojí", async () => {
+    mock.onGet("/match-formats").reply(200, pageOf([{ id: "other-format", name: "Čtyři části", sportId: "football" }]));
     mock.onPut("/competition-seasons/cs").reply(409, { timestamp: "2026-11-06T10:00:00Z", code: "OPTIMISTIC_LOCK_CONFLICT", message: "private internal detail" });
     const actor = userEvent.setup(); detail(); await screen.findByRole("heading", { name: "Liga · 2026" });
     await actor.click(screen.getByRole("button", { name: "Upravit pravidla ročníku" }));
     const form = screen.getByRole("form", { name: "Upravit pravidla ročníku" });
+    const matchFormat = await within(form).findByLabelText("Formát zápasu");
+    expect(matchFormat).toHaveValue(season.matchFormatId);
+    await actor.selectOptions(matchFormat, "other-format");
     const points = within(within(form).getByRole("region", { name: "Bodovací pravidlo 1" })).getByLabelText("Přidělené body");
     await actor.clear(points); await actor.type(points, "9");
     expect(screen.getByRole("button", { name: "Přihlásit tým" })).toBeDisabled();
     await actor.click(within(form).getByRole("button", { name: "Uložit pravidla ročníku" }));
     await within(form).findByRole("alert"); expect(points).toHaveValue(9);
-    expect(JSON.parse(mock.history.put[0].data as string)).toMatchObject({ version: season.version, configuration: { pointRules: [{ ...configuration.pointRules[0], points: 9 }, ...configuration.pointRules.slice(1)] } });
+    expect(matchFormat).toHaveValue("other-format");
+    expect(JSON.parse(mock.history.put[0].data as string)).toMatchObject({ version: season.version, matchFormatId: "other-format", configuration: { pointRules: [{ ...configuration.pointRules[0], points: 9 }, ...configuration.pointRules.slice(1)] } });
     expect(mock.history.put).toHaveLength(1); expect(mock.history.get.filter((r) => r.url === "/competition-seasons/cs")).toHaveLength(1);
     expect(screen.queryByText("private internal detail")).not.toBeInTheDocument();
     mock.onGet("/competition-seasons/cs").reply(200, { season: { ...season, version: "9007199254740994", lockedAt: "2026-11-06T12:00:00Z" }, configuration });

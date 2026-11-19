@@ -68,7 +68,7 @@ public class MatchFormatService {
                 }
                 try { competitionValidator.validate(competitions.configuration(season), c); }
                 catch (ApiException invalid) {
-                    throw new ApiException(HttpStatus.CONFLICT, "CONFIGURATION_LOCKED", "Změna by zneplatnila pravidla připojeného ročníku. Vytvořte nový formát a ročník.");
+                    throw new ApiException(HttpStatus.CONFLICT, "CONFIGURATION_LOCKED", "Změna by zneplatnila pravidla připojeného ročníku. Vytvořte nový formát a vyberte ho při úpravě pravidel ročníku.");
                 }
             }
         }

@@ -37,7 +37,7 @@ public final class CompetitionDtos {
                                 @NotNull @Size(min=1,max=10) List<@NotNull @Valid RankingCriterion> rankingCriteria) { }
     public record CreateSeasonRequest(@NotNull UUID competitionId,@NotNull UUID seasonId,@NotNull UUID matchFormatId,
                                        @NotNull @Valid Configuration configuration) { }
-    public record UpdateSeasonRequest(@NotNull @Pattern(regexp="0|[1-9][0-9]{0,18}") String version,
+    public record UpdateSeasonRequest(@NotNull @Pattern(regexp="0|[1-9][0-9]{0,18}") String version, UUID matchFormatId,
                                        @NotNull @Valid Configuration configuration) { }
     public record EntryRequest(@NotNull @Pattern(regexp="0|[1-9][0-9]{0,18}") String version,@NotNull UUID teamSeasonId) { }
     public record VersionRequest(@NotNull @Pattern(regexp="0|[1-9][0-9]{0,18}") String version) { }

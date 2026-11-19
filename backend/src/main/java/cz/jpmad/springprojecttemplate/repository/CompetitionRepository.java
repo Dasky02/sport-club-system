@@ -67,12 +67,12 @@ public class CompetitionRepository {
                 VALUES(:id,:competition,:season,:format,:policy,:meetings,:restart)
                 """, configurationParams(id,c).addValue("competition",competition).addValue("season",season).addValue("format",format));
     }
-    public int updateSeason(UUID id,long version,Configuration c) {
+    public int updateSeason(UUID id, long version, UUID formatId, Configuration c) {
         return jdbc.update("""
-                UPDATE competition_seasons SET version=version+1,head_to_head_missing_policy=:policy,
+                UPDATE competition_seasons SET version=version+1,match_format_id=:format,head_to_head_missing_policy=:policy,
                     head_to_head_meetings_per_pair=:meetings,restart_head_to_head_on_subgroup=:restart
                 WHERE id=:id AND version=:version
-                """,configurationParams(id,c).addValue("version",version));
+                """,configurationParams(id,c).addValue("version",version).addValue("format",formatId));
     }
     public int incrementVersion(UUID id,long version) {
         return jdbc.update("UPDATE competition_seasons SET version=version+1 WHERE id=:id AND version=:version",params(id).addValue("version",version));

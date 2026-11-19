@@ -33,7 +33,7 @@ export async function getCompetitionSeasons(page = 0, size = 20, filters?: { spo
 }
 export async function getCompetitionSeason(id: string): Promise<CompetitionSeasonDetail> { return (await apiClient.get<CompetitionSeasonDetail>(path(id))).data; }
 export const createCompetitionSeason = (body: CreateCompetitionSeason) => mutateWithCsrf<CompetitionSeasonDetail, CreateCompetitionSeason>("POST", "/competition-seasons", body);
-export const updateCompetitionSeason = (id: string, body: { version: string; configuration: CompetitionConfiguration }) => mutateWithCsrf<CompetitionSeasonDetail, typeof body>("PUT", path(id), body);
+export const updateCompetitionSeason = (id: string, body: { version: string; matchFormatId?: string; configuration: CompetitionConfiguration }) => mutateWithCsrf<CompetitionSeasonDetail, typeof body>("PUT", path(id), body);
 export async function getCompetitionEntries(id: string, page = 0, size = 20): Promise<PageResponse<CompetitionEntry>> {
   return (await apiClient.get<PageResponse<CompetitionEntry>>(`${path(id)}/entries`, { params: { page, size } })).data;
 }

@@ -219,7 +219,7 @@ UI `/admin/competitions` vytváří a přejmenovává soutěže a zakládá cel�
 | `GET /competition-seasons?page=0&size=20&sportId=UUID&competitionId=UUID&seasonId=UUID` | Volitelné filtry omezují items i counts. Items jsou SeasonSummary, řazení soutěž/sezóna od nejnovější/id. |
 | `GET /competition-seasons/{id}` | `{season:SeasonSummary,configuration}`. |
 | `POST /competition-seasons` | `{competitionId,seasonId,matchFormatId,configuration}` → 201; atomické vytvoření úplné konfigurace. Aktivní sport, otevřená sezóna, formát stejného sportu a jedinečná dvojice soutěž/sezóna. |
-| `PUT /competition-seasons/{id}` | `{version,configuration}` → 200; atomická náhrada všech pravidel a H2H nastavení. Identita, sezóna a formát ročníku jsou neměnné. |
+| `PUT /competition-seasons/{id}` | `{version,matchFormatId?,configuration}` → 200. Otevřený nepoužitý ročník může v jedné transakci změnit formát stejného sportu, pravidla a nastavení H2H. Při vynechání formátu se použije stávající. Identita, soutěž a sezóna ročníku se nemění. |
 | `GET /competition-seasons/{id}/point-rules`, `/forfeit-rules`, `/ranking-criteria` | Oprávněný přímý read příslušné omezené kolekce; mutace pravidel probíhá výhradně atomickým PUT ročníku. |
 | `GET /competition-seasons/{id}/entries?page=0&size=20` | Stránka `{teamSeasonId,displayName,isClubTeam}` se shodným count scope, historickými sezónními názvy, řazení displayName/id. |
 | `POST /competition-seasons/{id}/entries` | `{version,teamSeasonId}` → 200 SeasonSummary s novou verzí; tým stejného sportu i sezóny, klubový nebo externí; duplicita → 409 DUPLICATE_RESOURCE. |
@@ -231,7 +231,7 @@ Configuration obsahuje `headToHeadMissingPolicy` (REQUIRE_COMPLETE/PLAYED_ONLY),
 
 ForfeitRule má `decision` FORFEIT_HOME/FORFEIT_AWAY a `homeScore,awayScore,homePoints,awayPoints`; každé rozhodnutí právě jednou, nezáporná čísla a správný vítěz. Bodování kontumace není běžná prohra. RankingCriterion má souvislou `priority` od 1, jedinečnou `metric` z DBML a `direction` ASC/DESC; HEAD_TO_HEAD metriky tvoří souvislý blok, PART_SCORE metriky vyžadují povinné části. UI podporuje přidání/odebrání bodovacích pravidel, hranice skóre, obě kontumace i přesuny kritérií a jejich směr. Konfigurace je datová, žádné SQL nebo sportovní skripty.
 
-Archivace a lockedAt odmítají změny pravidel, H2H politiky a přihlášek s 409 CONFIGURATION_LOCKED; čtení zůstává. Změna dosud nepoužitého sdíleného formátu musí zachovat platnost všech připojených ročníků, jinak stejný konflikt; archivovaný/použitý ročník blokuje změnu pravidel formátu. Změna hranic sezóny se odmítne i tehdy, má-li zatím pouze ročník a žádný tým. Při 409 UI zachová rozepsaná data a nabídne výslovné zahození a reload; nepokouší se mutaci automaticky opakovat. Audit přihlášky ukládá oba klíče vazby.
+Archivace a lockedAt odmítají změny formátu, pravidel, H2H politiky a přihlášek s 409 CONFIGURATION_LOCKED; čtení zůstává. Změna dosud nepoužitého sdíleného formátu musí zachovat platnost všech připojených ročníků, jinak stejný konflikt; archivovaný/použitý ročník blokuje změnu pravidel formátu. Změna hranic sezóny se odmítne i tehdy, má-li zatím pouze ročník a žádný tým. Při 409 UI zachová rozepsaná data a nabídne výslovné zahození a reload; nepokouší se mutaci automaticky opakovat. Audit přihlášky ukládá oba klíče vazby.
 
 ## E3 — navazující výsledkové revize a dynamické statistiky
 

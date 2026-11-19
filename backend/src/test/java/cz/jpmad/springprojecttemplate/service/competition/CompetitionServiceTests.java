@@ -31,7 +31,7 @@ class CompetitionServiceTests {
     }
     @Test void staleOrLockedSeasonCannotReachConfigurationOrEntryMutation() {
         when(data.season(id)).thenReturn(new SeasonSummary(id,id,"Competition",id,"Season",id,"Sport",id,"Format","8","0",Instant.EPOCH,false));
-        assertThatThrownBy(()->service.updateSeason(actor,id,new UpdateSeasonRequest("7",null))).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.code()).isEqualTo("OPTIMISTIC_LOCK_CONFLICT"));
+        assertThatThrownBy(()->service.updateSeason(actor,id,new UpdateSeasonRequest("7",null,null))).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.code()).isEqualTo("OPTIMISTIC_LOCK_CONFLICT"));
         assertThatThrownBy(()->service.addEntry(actor,id,new EntryRequest("8",id))).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.code()).isEqualTo("CONFIGURATION_LOCKED"));
         verifyNoInteractions(formats,teams,validator,audit);verify(data,never()).replaceRules(any(),any());verify(data,never()).addEntry(any(),any());
     }

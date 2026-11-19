@@ -10,7 +10,7 @@ export function ResourceError({ error, onRetry }: { error: unknown; onRetry: () 
   return <div className="resource-error">
     <p className="message message-error" role="alert">{mapErrorToMessage(error)}</p>
     {denied
-      ? <button className="button button-secondary" onClick={() => void refreshUser()}>Obnovit ověření přístupu</button>
-      : <button className="button button-secondary" onClick={onRetry}>Zkusit znovu</button>}
+      ? <button type="button" className="button button-secondary" onClick={() => void refreshUser()}>Obnovit ověření přístupu</button>
+      : <button type="button" className="button button-secondary" onClick={onRetry}>Zkusit znovu</button>}
   </div>;
 }

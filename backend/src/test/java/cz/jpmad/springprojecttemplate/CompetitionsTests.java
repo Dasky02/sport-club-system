@@ -116,6 +116,44 @@ class CompetitionsTests {
             assertThat(jdbc.queryForObject("SELECT count(*) FROM competition_entries",Long.class)).isZero();
         } finally { jdbc.execute("ALTER TABLE audit_log DROP CONSTRAINT reject_p4_audit"); }
     }
+    @Test
+    void replacesFormatAndRulesTogetherOnlyForAnOpenUnusedSeason() throws Exception {
+        var fixture = fixture();
+        var admin = fixture.admin();
+        String id = competitionSeason(fixture);
+        String path = "/competition-seasons/" + id;
+        String newFormat = create(admin, "/match-formats", Map.of(
+                "sportId", fixture.sport(), "name", "Four periods", "configuration", format(false, true)));
+        var replacement = config(false, true);
+        String foreignSport = create(admin, "/sports", Map.of("code", "SPORT_B", "name", "Sport B"));
+        String foreignFormat = create(admin, "/match-formats", Map.of(
+                "sportId", foreignSport, "name", "Foreign", "configuration", format(false, true)));
+        error(admin.put(path, Map.of("version", "0", "matchFormatId", foreignFormat,
+                "configuration", replacement)), 400, "VALIDATION_ERROR");
+        error(admin.put(path, Map.of("version", "0", "matchFormatId", newFormat,
+                "configuration", fixture.configuration())), 400, "VALIDATION_ERROR");
+        var original = json(admin.get(path));
+        assertThat(original.path("season").path("matchFormatId").asText()).isEqualTo(fixture.format());
+        assertThat(original.path("season").path("version").asText()).isEqualTo("0");
+
+        String team = team(admin, fixture.sport(), fixture.season(), "Club", true);
+        ok(admin.post(path + "/entries", Map.of("version", "0", "teamSeasonId", team)), 200);
+        var updated = admin.put(path, Map.of("version", "1", "matchFormatId", newFormat,
+                "configuration", replacement));
+        ok(updated, 200);
+        var persisted = json(admin.get(path));
+        assertThat(persisted.path("season").path("matchFormatId").asText()).isEqualTo(newFormat);
+        assertThat(persisted.path("season").path("version").asText()).isEqualTo("2");
+        assertThat(persisted.path("configuration").path("pointRules").size()).isEqualTo(4);
+        assertThat(json(admin.get(path + "/entries")).path("totalElements").asText()).isEqualTo("1");
+
+        jdbc.update("UPDATE competition_seasons SET locked_at=CURRENT_TIMESTAMP WHERE id=?", UUID.fromString(id));
+        error(admin.put(path, Map.of("version", "2", "matchFormatId", fixture.format(),
+                "configuration", fixture.configuration())), 409, "CONFIGURATION_LOCKED");
+        assertThatThrownBy(() -> jdbc.update("UPDATE competition_seasons SET match_format_id=? WHERE id=?",
+                UUID.fromString(fixture.format()), UUID.fromString(id)))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
     @Test void locksArchiveAndReferencedFormatChangesPreserveValidConfigurationAndHistoricalEntries() throws Exception {
         var f=fixture();var a=f.admin();String id=competitionSeason(f);
         error(a.patch("/seasons/"+f.season(),Map.of("endsOn","2027-02-01")),409,"CONFIGURATION_LOCKED");

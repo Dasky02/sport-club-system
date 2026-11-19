@@ -80,8 +80,15 @@ public class CompetitionService {
     }
     public SeasonResponse updateSeason(UUID actor,UUID id,UpdateSeasonRequest r) {
         actor(actor,true); var s=data.season(id); long version=version(r.version(),s); open(s);
-        validator.validate(r.configuration(),formats.get(s.matchFormatId()).configuration());
-        if (data.updateSeason(id,version,r.configuration())!=1) conflict("OPTIMISTIC_LOCK_CONFLICT","Ročník byl mezitím změněn.");
+        UUID formatId = r.matchFormatId() == null ? s.matchFormatId() : r.matchFormatId();
+        var format = formats.get(formatId);
+        if (!s.sportId().equals(format.sportId())) {
+            throw ApiException.invalidField("matchFormatId", "Formát musí patřit stejnému sportu.");
+        }
+        validator.validate(r.configuration(), format.configuration());
+        if (data.updateSeason(id, version, formatId, r.configuration()) != 1) {
+            conflict("OPTIMISTIC_LOCK_CONFLICT", "Ročník byl mezitím změněn.");
+        }
         data.replaceRules(id,r.configuration());
         audit.record(actor,"COMPETITION_RULES_UPDATED","competition_seasons",id); return response(id);
     }

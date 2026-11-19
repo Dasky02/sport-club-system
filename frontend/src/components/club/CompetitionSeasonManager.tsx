@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { ApiError } from "@/api/api";
 import { addCompetitionEntry, getCompetitionEntries, getCompetitionSeason, removeCompetitionEntry, updateCompetitionSeason, type CompetitionSeasonDetail } from "@/api/competitions";
+import { getMatchFormats } from "@/api/matchFormats";
 import { allPages, getTeamSeasons } from "@/api/teams";
 import { AccessGate } from "../AccessGate";
 import { AdminNav } from "./AdminNav";
@@ -21,13 +22,26 @@ function Detail({ detail, reload }: { detail: CompetitionSeasonDetail; reload: (
   const [page, setPage] = useState(0); const submitting = useRef(false);
   const loadEntries = useCallback(() => getCompetitionEntries(season.id, page, 20), [season.id, page]);
   const loadCandidates = useCallback(() => allPages((p, size) => getTeamSeasons(p, size, { seasonId: season.seasonId, sportId: season.sportId })), [season.seasonId, season.sportId]);
+  const loadFormats = useCallback(
+    () => editing ? allPages((p, size) => getMatchFormats(p, size, season.sportId)) : Promise.resolve([]),
+    [editing, season.sportId],
+  );
+  const formats = useResource(loadFormats);
   const entries = useResource(loadEntries), candidates = useResource(loadCandidates);
   const locked = season.archived || season.lockedAt != null, errors = competitionFieldErrors(error);
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (submitting.current || locked) return;
     const data = new FormData(event.currentTarget);
     submitting.current = true; setPending(true); setError(null);
-    try { await updateCompetitionSeason(season.id, { version: season.version, configuration: configurationFromForm(data) }); reload(); }
+    const selectedFormat = data.get("matchFormatId");
+    const matchFormatId = typeof selectedFormat === "string" && selectedFormat !== season.matchFormatId
+      ? selectedFormat : undefined;
+    try {
+      await updateCompetitionSeason(season.id, {
+        version: season.version, matchFormatId, configuration: configurationFromForm(data),
+      });
+      reload();
+    }
     catch (caught) { setError(caught); } finally { submitting.current = false; setPending(false); }
   };
   const entryMutation = async (team: string, remove: boolean) => {
@@ -43,6 +57,15 @@ function Detail({ detail, reload }: { detail: CompetitionSeasonDetail; reload: (
     {locked && <p className="message">{season.archived ? "Sezóna je archivovaná." : "Ročník má historicky použitá pravidla."} Pravidla a přihlášky jsou pouze ke čtení.</p>}
     <section className="detail-card"><h2>Pravidla ročníku</h2>
       {editing ? <form className="club-form" aria-label="Upravit pravidla ročníku" onSubmit={save} aria-busy={pending}>
+        <ResourceView resource={formats.resource} reload={formats.reload}>{available => (
+          <SelectField name="matchFormatId" label="Formát zápasu" defaultValue={season.matchFormatId}
+            disabled={pending || locked} error={errors.matchFormatId}>
+            <option value={season.matchFormatId}>{season.matchFormatName}</option>
+            {available.filter(format => format.id !== season.matchFormatId).map(format => (
+              <option key={format.id} value={format.id}>{format.name}</option>
+            ))}
+          </SelectField>
+        )}</ResourceView>
         <CompetitionConfigurationFields initial={configuration} disabled={pending || locked} errors={errors} />
         <FormError error={error} fieldErrors={errors} /><div className="actions"><button className="button" disabled={pending || locked}>{pending ? "Ukládám…" : "Uložit pravidla ročníku"}</button><button type="button" className="text-button" disabled={pending} onClick={() => { setEditing(false); setError(null); }}>Zrušit úpravy</button></div><ReloadConflict error={error} reload={reload} />
       </form> : <><details><summary>Zobrazit pravidla ročníku</summary><CompetitionConfigurationFields initial={configuration} disabled /></details>{!locked && <button className="button button-secondary" disabled={pending} onClick={() => { setEditing(true); setError(null); }}>Upravit pravidla ročníku</button>}</>}

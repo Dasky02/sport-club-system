@@ -8,7 +8,7 @@ P3 poskytuje správu účtů na ověřené osoby, person-link, odůvodněné zm�
 
 Ve větvi `feat/p4-match-formats` je implementovaný celý rozsah P4: ADMIN formáty, soutěže, ročníky a přihlášky klubových i externích týmů, úplné bodování včetně rozsahů a povolených ukončení, obě soutěžní kontumace, pořadí kritérií a H2H politika. Skutečné REST formuláře navazují na R12/R13/R14/R16 a T01/T03/T04/T07/T08/T10/T11. P5/P6 dodají události, výsledky, automatické uzamčení první částí/výsledkem a výpočty; nepatří do P4.
 
-`V5__match_formats.sql` realizuje formáty, `V6__competition_configuration.sql` dalších šest soutěžních tabulek z DBML: celkem 19, dalších 19 zbývá. V1–V5 se při V6 nemění. Běžná uživatelova DB nebyla kontrolována ani měněna; ověření používá izolované testovací DB. Historický návrh jednoho V5 pro celý P4 se nepoužije; V5/V6 jsou již obsazené a další číslo se potvrdí až při skutečné dodávce.
+`V5__match_formats.sql` realizuje formáty, `V6__competition_configuration.sql` dalších šest soutěžních tabulek z DBML: celkem 19, dalších 19 zbývá. V1–V5 se při V6 nemění. Běžná uživatelova DB nebyla kontrolována ani měněna; ověření používá izolované testovací DB. Historický návrh jednoho V5 pro celý P4 se nepoužije; V5–V7 jsou již obsazené a další číslo se potvrdí až při skutečné dodávce.
 
 Uživatel 6. 11. 2026 povolil izolované ověření. Konkrétní výsledky a omezení zaznamenává pouze [ověření](verification.md); samotná implementace ani existence testu nejsou akceptací celého P4.
 
@@ -55,7 +55,7 @@ V1 zná pouze username, BCrypt hash, roli a časy. Neobsahuje skutečné jméno,
 
 ## Pořadí databázových změn
 
-**V1–V6 jsou implementované; navazující migrační řezy níže jsou plán bez přidělených čísel a bez prázdných SQL souborů.** Číslo další migrace se přidělí při práci na konkrétní změně po V6. Aplikovaná migrace se nikdy nepřepisuje. Jeden vlastník koordinuje migrační soubory před sloučením větví.
+**V1–V7 jsou implementované; navazující migrační řezy níže jsou plán bez přidělených čísel a bez prázdných SQL souborů.** Číslo další migrace se přidělí při práci na konkrétní změně po V7. Aplikovaná migrace se nikdy nepřepisuje. Jeden vlastník koordinuje migrační soubory před sloučením větví.
 
 | Návrh | Přidávané tabulky / změny | Součet tabulek |
 | --- | --- | --- |
@@ -65,6 +65,7 @@ V1 zná pouze username, BCrypt hash, roli a časy. Neobsahuje skutečné jméno,
 | V4 — implementované účty a rodiče | `users.auth_revision`, guardian/user guardy, zákaz neplatného CHILD; žádná nová tabulka | 12 |
 | V5 — implementované formáty | `match_formats` | 13 |
 | V6 — implementovaná soutěžní konfigurace | `competitions`, `competition_seasons`, `competition_point_rules`, `competition_forfeit_rules`, `competition_ranking_criteria`, `competition_entries` | 19 |
+| V7 — úprava formátu otevřeného ročníku | Zpřesňuje ochranu formátu ročníku. Počet tabulek se nemění. | 19 |
 | Další řez P5 — události, výsledkový základ a schránka | `events`, `event_teams`, `event_participants`, `matches`, `match_result_revisions`, `match_periods`, `match_result_players`, `fee_assessments`, `fee_payments`, `notifications`, `notification_deliveries` | 30 |
 | Další řez P6 — statistiky | `statistic_definitions`, `statistic_definition_versions`, `player_match_statistics` | 33 |
 | Další řez P6 — úplné řešení shod | `competition_tie_decisions`, `competition_tie_decision_entries` | 35 |
@@ -90,8 +91,8 @@ P0 má dokumentační podklady; P1–P4 mají implementovaný rozsah níže. P5�
 | P1 — implementovaná identita a bezpečný setup | P0 | V2, onboarding osoby, čerstvé autorizační kontroly, audit, setup a admin správa sportů; nový účet/context DTO; obecné frontend chyby a CSRF mutace | Upgrade všech starých rolí bez ztráty účtů; A01, A17, A19, A27; dva souběžné setupy nejvýše jeden úspěch |
 | P2 — implementované týmy a soupiska | P1 | V3 základ, sezóny, oba sporty, vlastní/externí týmy, hráči bez účtů, intervalová členství, vlastní trenérské přiřazení; admin a scoped UI | R01/R12/R16, T04/T08, U11; jediný ADMIN/trenér vede fotbal i basketbal bez dalších účtů; přestup zachová historii |
 | P3 — implementované účty, rodič a CHILD | P2 | V4 auth_revision/guardy; správa schválených vazeb, účet na existující osobu, person-link, role/typ/přístup, omezený dětský účet, Moje děti, odvolání sessions i po reaktivaci, ochrana posledního ADMIN; finance deny politika před finančními endpointy | A04, A08, A16, A20, A23–A26; dvě děti a dva rodiče; ztráta jedné versus poslední platné vazby |
-| P4 — dokončený základ soutěží | P2 | V5/V6; skutečné admin formuláře formátů, soutěží, ročníků, přihlášek, bodování, kontumací, kritérií pořadí a H2H politik | Lokální akceptace obou sportů z UI, cizího sportu/sezóny, překryvů a neúplnosti je zaznamenaná ve verification.md; výsledkové výpočty až P5/P6 |
-| P5 — kalendář, účast a notifikace | P3, pro MATCH také P4 | Nová migrace po V6; TRAINING/MATCH/OTHER, publikace/změny/rušení, dostupnost, nominace, docházka, nastoupení a vlastní schránka | R03–R06/R10; A03, A06–A09, A12–A13; nominace není přítomnost; změna a doručení ve stejné transakci, opakování bez duplicity |
+| P4 — dokončený základ soutěží | P2 | V5–V7; skutečné admin formuláře formátů, soutěží, ročníků, přihlášek, bodování, kontumací, kritérií pořadí a H2H politik | Lokální akceptace obou sportů z UI, cizího sportu/sezóny, překryvů a neúplnosti je zaznamenaná ve verification.md; výsledkové výpočty až P5/P6 |
+| P5 — kalendář, účast a notifikace | P3, pro MATCH také P4 | Nová migrace po V7; TRAINING/MATCH/OTHER, publikace/změny/rušení, dostupnost, nominace, docházka, nastoupení a vlastní schránka | R03–R06/R10; A03, A06–A09, A12–A13; nominace není přítomnost; změna a doručení ve stejné transakci, opakování bez duplicity |
 | P6 — výsledky, statistiky a pořadí | P4–P5 | Pozdější migrace statistik a shod; návrh/potvrzení/oprava/anulování s historií, dynamické definice a hodnoty, serverový výpočet tabulek a agregací | R13–R16, T05; A15/A18; oba sportovní fixtures, H2H a restart, historické názvy a hodnoty |
 | P7 — finance a reminders | P3+P5 | Service/API/UI nad fee tabulkami plánovaného řezu P5; předpis, několik úhrad, storno, vlastní/rodičovské čtení, výzvy a audit | R07–R09; A05, A09–A10, A14, A21–A22; 1000→400→600→storno, souběh a idempotence, CHILD bez obsahu i počtů |
 | P8 — komunikace | P3; integračně P5 | Pozdější migrace komunikace; seznam konverzací, aktivní účastníci, odeslání a stránkování zpráv, oprávnění při každém čtení/zápisu | R11, A11; ADMIN bez účasti odmítnut, zprávy až od připojení, zánik poslední vazby ihned zakáže přístup |
