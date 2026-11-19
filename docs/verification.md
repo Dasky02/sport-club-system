@@ -1,5 +1,20 @@
 # Ověření projektu
 
+## 19. 11. 2026 — formuláře administrace, členství a plánování akcí
+
+- Na větvi `feat/frontend-redesign` prošel produkční Next build, ESLint, TypeScript a **107/107 testů Vitest**. Diff backendu, migrací a konfigurace nasazení je prázdný.
+- **9/9 scénářů Playwright** prošlo po opakování dotčené kontroly. Desktop a mobil ověřily přihlášení, výpadek API a průchod od prázdného kalendáře přes založení sezóny, sportu a týmu až po přiřazení hráče, zveřejnění tréninku bez nominace a přečtení oznámení. Dále prošla historie soupisky a zamknutí archivované sezóny na desktopu, rodičovské a dětské účty a správa soutěží na mobilu. Běhy použily samostatné databáze PostgreSQL 16 a současný Spring Boot.
+- Lokální ukázka na portu 13000 používá nové sestavení a stávající ukázková data. Přihlášení a čtení kalendáře, detailu tréninku a administrace prošly při 320 a 1280 px.
+- Lokální odkazy v návodech a SQL ukázky prošly nad ukázkovou databází v režimu pouze pro čtení. Konfigurace samostatného Compose projektu prošla přes `config --quiet`. Spuštění celého návodu na jiném zařízení v tomto běhu neproběhlo.
+
+## 19. 11. 2026 — přepracování frontendu
+
+- Větev `feat/frontend-redesign` vychází z `46b1ed1`. Kontrola diffu pro backend, migrace a konfiguraci nasazení neukázala žádné změny. Rozsah zahrnuje R01–R06, R10, správní konfiguraci R12–R14 a frontendové požadavky T01, T02 a T11.
+- Node 24.14.0. Prošel ESLint, kontrola TypeScriptu, produkční Next build a **107/107 testů Vitest** ve 13 souborech.
+- **11/11 scénářů Playwright** prošlo nad skutečným Spring Boot API na Java 17 a samostatnými databázemi PostgreSQL 16. Přihlášení, výpadek API a průchod od založení akce po přečtení oznámení prošly na desktopu i mobilu. Dále prošlo převzetí správy a sporty na mobilu, soupiska na desktopu, rodičovské a dětské účty na mobilu, formáty zápasů na desktopu a soutěžní konfigurace na mobilu. Po posledních úpravách se opakovaly přihlášení, kalendář, sporty a formáty. Testovací databáze vznikala pro každý běh zvlášť.
+- V běžící lokální ukázce prošlo přihlášení a načtení přehledu, kalendáře a administrace při 1280 a 320 px. Kalendář a administrace se na obou šířkách vešly bez vodorovného přetečení.
+- Prošla kontrola veřejného obsahu a `git diff --check`.
+
 ## 19. 11. 2026 — P5 kalendář, účast a sportovní schránka
 
 - Frontend na Node 24.14.0: lint, TypeScript, produkční Next build a 107 testů prošly. Nové testy ověřují pražské časové hranice včetně změny času a aktualizaci schránky po označení oznámení.

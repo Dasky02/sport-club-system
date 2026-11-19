@@ -5,12 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "@/api/api";
 import { AuthProvider } from "@/context/AuthContext";
-import { ApiStatus } from "./ApiStatus";
 import { AuthForm } from "./AuthForm";
 import { Dashboard } from "./Dashboard";
 
 const push = vi.hoisted(() => vi.fn());
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard", useRouter: () => ({ push }) }));
 
 let mock: MockAdapter;
 const user = completeUser;
@@ -23,16 +22,6 @@ beforeEach(() => {
 afterEach(() => { mock.restore(); });
 
 describe("Czech UI integration", () => {
-  it("ukazuje skutečnou API verzi po retry výpadku", async () => {
-    mock.onGet("/info/version").networkErrorOnce();
-    mock.onGet("/info/version").reply(200, { version: "0.1.0" });
-    render(<ApiStatus />);
-    await screen.findByText("API není dostupné");
-    fireEvent.click(screen.getByRole("button", { name: /Zkusit znovu/ }));
-    await screen.findByText("API je dostupné");
-    expect(screen.getByText("0.1.0")).toBeInTheDocument();
-  });
-
   it("registruje pouze username/password a navede na login bez předstírání aktivní session", async () => {
     mock.onPost("/auth/register").reply(201, user);
     const actor = userEvent.setup();
@@ -54,7 +43,11 @@ describe("Czech UI integration", () => {
     await actor.type(screen.getByLabelText("Heslo", { exact: true }), "test-password");
     await actor.type(screen.getByLabelText("Heslo znovu"), "other-password");
     await actor.click(screen.getByRole("button", { name: /Vytvořit účet/ }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Hesla se neshodují.");
+    const summary = await screen.findByRole("alert");
+    expect(summary).toHaveTextContent("Hesla se neshodují.");
+    expect(summary).toHaveFocus();
+    await actor.click(screen.getByRole("link", { name: "Hesla se neshodují." }));
+    expect(screen.getByLabelText("Heslo znovu")).toHaveFocus();
     fireEvent.change(screen.getByLabelText("Heslo", { exact: true }), { target: { value: "ě".repeat(40) } });
     fireEvent.change(screen.getByLabelText("Heslo znovu"), { target: { value: "ě".repeat(40) } });
     await actor.click(screen.getByRole("button", { name: /Vytvořit účet/ }));
@@ -87,5 +80,16 @@ describe("Czech UI integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Zkusit znovu" }));
     await screen.findByRole("heading", { name: "Ahoj, tester." });
     expect(screen.getByText("Běžný uživatel")).toBeInTheDocument();
+  });
+
+  it("zobrazí chybu odhlášení i po obnovení obsahu přehledu", async () => {
+    mock.onGet("/auth/me").reply(200, user);
+    mock.onGet("/events").reply(200, { items: [], totalPages: 0 });
+    mock.onGet("/notifications/unread-count").reply(200, { count: 0 });
+    mock.onPost("/auth/logout").networkError();
+    render(<AuthProvider><Dashboard /></AuthProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: "Odhlásit se" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Odhlášení nebylo potvrzeno.");
+    expect(screen.getByRole("heading", { name: "Ahoj, tester." })).toBeInTheDocument();
   });
 });

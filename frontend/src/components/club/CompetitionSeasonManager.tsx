@@ -6,7 +6,6 @@ import { addCompetitionEntry, getCompetitionEntries, getCompetitionSeason, remov
 import { getMatchFormats } from "@/api/matchFormats";
 import { allPages, getTeamSeasons } from "@/api/teams";
 import { AccessGate } from "../AccessGate";
-import { AdminNav } from "./AdminNav";
 import { competitionFieldErrors } from "./CompetitionsManager";
 import { CompetitionConfigurationFields, configurationFromForm } from "./CompetitionConfigurationFields";
 import { FormError, SelectField } from "./Fields";
@@ -82,6 +81,6 @@ function Detail({ detail, reload }: { detail: CompetitionSeasonDetail; reload: (
 }
 function Content({ id }: { id: string }) {
   const load = useCallback(() => getCompetitionSeason(id), [id]); const detail = useResource(load);
-  return <section className="club-page"><AdminNav /><p className="eyebrow">Soutěžní ročník</p><ResourceView resource={detail.resource} reload={detail.reload}>{(data) => <Detail key={`${data.season.id}:${data.season.version}`} detail={data} reload={detail.reload} />}</ResourceView></section>;
+  return <section className="club-page"><ResourceView resource={detail.resource} reload={detail.reload}>{(data) => <Detail key={`${data.season.id}:${data.season.version}`} detail={data} reload={detail.reload} />}</ResourceView></section>;
 }
 export function CompetitionSeasonManager({ id }: { id: string }) { return <AccessGate completeProfile capability="MANAGE_CLUB"><Content id={id} /></AccessGate>; }

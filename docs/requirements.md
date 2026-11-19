@@ -33,8 +33,8 @@ P4 implementuje formáty, soutěže, ročníky a přihlášky sezónních klubov
 
 | ID | Požadavek ze zadání | Konkrétní řešení a akceptace | Cílová etapa | Stav E0 + P1–P5 |
 | --- | --- | --- | --- | --- |
-| T01 | Samostatný webový frontend přes REST API | Next.js App Router/TypeScript, skutečný Spring JSON klient, credentials/CSRF; žádná doménová business logika v Next serveru | E0–E6 | P1–P4 skutečné identity, týmové, account/rodičovské a soutěžní UI; ostatní domény plán |
-| T02 | Responzivní desktop a mobil | Responzivní skeleton; všechny následující tabulky, kalendář, formuláře a konverzace mají mobilní variantu a akceptaci | E0–E6 | P1–P4 responzivní formuláře, přehledy, soupisky a soutěžní konfigurace; provedené kontroly viz ověření |
+| T01 | Samostatný webový frontend přes REST API | Next.js App Router, TypeScript, Spring REST, credentials a CSRF | E0–E6 | P1–P5 používají skutečné REST API, včetně akcí a schránky na přehledu |
+| T02 | Responzivní desktop a mobil | Navigace, přehledy, formuláře a kalendář na obou velikostech | E0–E6 | P1–P5 mají sdílené responzivní rozhraní, mobilní menu a kalendář podle dat. Provedené kontroly uvádí [ověření](verification.md) |
 | T03 | Java/Spring Boot REST backend | Zachované vrstvy/DTO šablony, Java 17/Spring Boot 4, transakční service a omezené repository dotazy | E0–E6 | Implementovaný auth/info, členský/rodičovský a soutěžní konfigurační backend P1–P4 |
 | T04 | Alespoň dva týmové sporty bez změny kódu | Sporty v DB v jedné instalaci současně; každý tým právě jeden sport; fotbal a basketbal s odlišným bodováním, kritérii shody a statistikami; dva plné scénáře E3 | E1+E3 | P1–P4 oba sporty, týmy a soutěžní konfigurace bez sportovních větví; úplné výsledkové scénáře až P6 |
 | T05 | Admin spravuje názvy a typy individuálních statistik v UI | Stabilní definice a neměnné verze; INTEGER/DECIMAL/BOOLEAN/TEXT, kompatibilní validace/agregace; dynamický formulář | E3 | Navrženo; žádná pevná sportovní pole |

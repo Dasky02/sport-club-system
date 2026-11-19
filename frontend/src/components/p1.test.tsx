@@ -145,11 +145,11 @@ describe("P1 safe club setup", () => {
     const actor = userEvent.setup();
     render(<AuthProvider><SiteHeader /><ClubSetup /></AuthProvider>);
     await screen.findByRole("heading", { name: "Sportovní klub" });
-    expect(screen.queryByRole("link", { name: "Správa sportů" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Administrace" })).not.toBeInTheDocument();
     await actor.type(screen.getByLabelText("Instalační token"), "setup-token");
     await actor.click(screen.getByRole("button", { name: "Převzít správu klubu" }));
     await screen.findByText("Správa klubu je již nastavená.");
-    expect(screen.getByRole("link", { name: "Správa sportů" })).toHaveAttribute("href", "/admin/sports");
+    expect(screen.getByRole("link", { name: "Administrace" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("link", { name: "Otevřít správu sportů" })).toBeInTheDocument();
     expect(mock.history.get.filter((request) => request.url === "/me/context")).toHaveLength(2);
   });
@@ -177,8 +177,7 @@ describe("P1 sports administration", () => {
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Zkusit znovu" }));
     await screen.findByRole("heading", { name: "Zatím nejsou evidované žádné sporty." });
-    expect(screen.getByRole("button", { name: "Předchozí stránka" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Další stránka" })).toBeDisabled();
+    expect(screen.queryByRole("navigation", { name: "Stránkování" })).not.toBeInTheDocument();
   });
 
   it("přidá, přejmenuje a deaktivuje sport přes reálný transport bez DELETE/code v PATCH", async () => {

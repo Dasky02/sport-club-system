@@ -3,48 +3,134 @@
 import Link from "next/link";
 import { useState } from "react";
 import { mapErrorToMessage } from "@/api/errorMapper";
-import type { UserRole } from "@/api/types";
+import { getEvents, getUnreadCount, type ClubEvent } from "@/api/events";
 import { useAuth } from "@/context/AuthContext";
 import { AccessGate } from "./AccessGate";
+import { ClubIcon, type ClubIconName } from "./ClubIcon";
+import { EmptyState, ResourceView, useResource } from "./club/Resource";
+import { displayDateTime } from "./events/clubTime";
+import { statusLabels, typeLabels } from "./events/labels";
 
-const roleNames: Record<UserRole, string> = {
-  ADMIN: "Administrátor", USER: "Běžný uživatel",
-};
+async function loadAgenda() {
+  const now = new Date();
+  const until = new Date(now.getTime() + 30 * 86_400_000);
+  const events: ClubEvent[] = [];
+  for (let page = 0; events.length < 5; page += 1) {
+    const result = await getEvents({ from: now.toISOString(), to: until.toISOString(), page, size: 30 });
+    events.push(...result.items.filter(({ status }) => status === "PUBLISHED" || status === "DRAFT"));
+    if (page + 1 >= result.totalPages) break;
+  }
+  return events.slice(0, 5);
+}
 
-function DashboardContent() {
-  const { user, context, logout, refreshUser } = useAuth();
-  const [logoutError, setLogoutError] = useState<string | null>(null);
+function DashboardOverview({ userId }: { userId: string }) {
+  const { user, context } = useAuth();
+  const agenda = useResource(loadAgenda, userId);
+  const unread = useResource(getUnreadCount, userId);
+  const capabilities = context?.capabilities ?? [];
+  const shortcuts: { href: string; label: string; icon: ClubIconName; description?: string }[] = [
+    {
+      href: "/notifications",
+      label: "Oznámení",
+      icon: "bell",
+      description: unread.resource.state === "ready" ? `Nepřečtená: ${unread.resource.data}` : undefined,
+    },
+  ];
 
-  const signOut = async () => {
-    setLogoutError(null);
-    try { await logout(); } catch (error: unknown) { setLogoutError(mapErrorToMessage(error)); }
-  };
-
-  if (!user) return null;
+  if (context?.teamContexts.length || capabilities.includes("MANAGE_TEAMS")) {
+    shortcuts.push({ href: "/teams", label: "Týmy a soupisky", icon: "team" });
+  }
+  if (user?.accountType === "STANDARD" && context?.children.length) {
+    shortcuts.push({ href: "/my-children", label: "Moje děti", icon: "team" });
+  }
+  if (context?.ownPlayerId) {
+    shortcuts.push({ href: `/players/${context.ownPlayerId}`, label: "Profil a členství", icon: "person" });
+  }
+  if (capabilities.includes("MANAGE_CLUB")) {
+    shortcuts.push({ href: "/admin", label: "Administrace klubu", icon: "settings" });
+  } else if (user?.accountType === "STANDARD") {
+    shortcuts.push({ href: "/setup", label: "Nastavení klubu", icon: "settings" });
+  }
 
   return (
-    <section className="dashboard">
-      <div className="dashboard-heading"><div><p className="eyebrow">Můj účet</p><h1>Ahoj, {user.username}.</h1><p className="lead">Vaše session je aktivní a účet byl ověřen backendem.</p></div><button className="button button-secondary" onClick={() => void signOut()}>Odhlásit se <span aria-hidden="true">↗</span></button></div>
-      {logoutError && <div className="message message-error" role="alert"><p>{logoutError} Odhlášení nebylo potvrzeno.</p><button className="text-button" onClick={() => void refreshUser()}>Ověřit session</button></div>}
-      <div className="dashboard-grid">
-        <article className="detail-card"><p className="eyebrow">Údaje účtu</p><h2>Váš profil přihlášení</h2><dl><div><dt>Uživatelské jméno</dt><dd>{user.username}</dd></div><div><dt>Systémová role</dt><dd>{roleNames[user.role]}</dd></div><div><dt>Typ účtu</dt><dd>{user.accountType === "CHILD" ? "Dětský účet" : "Běžný účet"}</dd></div><div><dt>Osobní údaje</dt><dd>{user.profileState === "COMPLETE" ? "Dokončené" : "Čekají na doplnění"}</dd></div><div><dt>Účet vytvořen</dt><dd>{new Intl.DateTimeFormat("cs-CZ", { dateStyle: "long", timeZone: "Europe/Prague" }).format(new Date(user.createdAt))}</dd></div><div><dt>Identifikátor účtu</dt><dd className="identifier">{user.id}</dd></div></dl></article>
-        <article className="detail-card next-step"><p className="eyebrow">Další krok</p>
-          {user.profileState === "PENDING" ? <><h2>Doplňte osobní údaje</h2><p>Účet zatím není propojený s osobou. Po dokončení vlastních údajů můžete pokračovat k dostupným klubovým funkcím.</p><Link className="button" href="/profile">Doplnit osobní údaje</Link></>
-            : context?.capabilities.includes("MANAGE_TEAMS") ? <><h2>Správa vašeho klubu</h2><p>Připravte sezóny, týmy a hráčské profily. Trenéry včetně vlastního účtu přiřadíte k týmům v sezóně.</p><div className="actions"><Link className="button" href="/admin">Administrace klubu</Link><Link className="button button-secondary" href="/teams">Týmy a soupisky</Link></div></>
-              : context?.capabilities.includes("MANAGE_SPORTS") ? <><h2>Sporty vašeho klubu</h2><p>Jako administrátor můžete přidávat, přejmenovávat a deaktivovat sporty. Kód sportu zůstává stabilní.</p><Link className="button" href="/admin/sports">Správa sportů</Link></>
-              : user.accountType === "STANDARD" && context?.children.length ? <><h2>Vaše děti</h2><p>Prohlédněte si schválené hráčské profily svých dětí a jejich členství.</p><Link className="button" href="/my-children">Moje děti</Link></>
-              : context?.teamContexts.length ? <><h2>Vaše týmy</h2><p>Zobrazte aktuálně povolené týmové soupisky.</p><Link className="button" href="/teams">Týmy a soupisky</Link></>
-                : context?.ownPlayerId ? <><h2>Váš hráčský profil</h2><p>Prohlédněte si vlastní základní profil a historii členství.</p><Link className="button" href={`/players/${context.ownPlayerId}`}>Profil a členství</Link></>
-              : user.accountType === "STANDARD" ? <><h2>Váš profil je připravený</h2><p>Pokud jste provozovatel nové instalace, ověřte stav jednorázového převzetí správy. Běžný účet správní oprávnění nezískává automaticky.</p><Link className="button" href="/setup">Nastavení klubu</Link></>
-                : <><h2>Váš osobní profil</h2><p>Údaje tohoto účtu můžete prohlédnout v osobním profilu.</p><Link className="button" href="/profile">Osobní údaje</Link></>}
-        </article>
-      </div>
-      {user.profileState === "COMPLETE" && context?.ownPlayerId && <div className="actions"><Link className="text-button" href={`/players/${context.ownPlayerId}`}>Můj hráčský profil</Link></div>}
-      <p className="subtle dashboard-scope">Sportovní události, výsledky, příspěvky a komunikace jsou součástí dalších pracovních balíčků.</p>
-    </section>
+    <div className="dashboard-grid">
+      <section className="detail-card agenda" aria-labelledby="agenda-title">
+        <div className="list-heading">
+          <h2 id="agenda-title">Nejbližší akce</h2>
+          <Link href="/calendar" className="text-button">Otevřít kalendář</Link>
+        </div>
+        <ResourceView {...agenda}>{(events) => events.length ? (
+          <ul className="agenda-list">
+            {events.map(({ id, type, status, schedule }) => (
+              <li key={id}>
+                <Link href={`/events/${id}`}>
+                  <span className={`agenda-type agenda-${type.toLowerCase()}`}>{typeLabels[type]}</span>
+                  <span className="agenda-info">
+                    <strong>{schedule.title}</strong>
+                    <small><time dateTime={schedule.startsAt}>{displayDateTime(schedule.startsAt)}</time>{schedule.location && ` · ${schedule.location}`}</small>
+                  </span>
+                  {status !== "PUBLISHED" && <span className="pill pill-inactive">{statusLabels[status]}</span>}
+                  <ClubIcon name="chevron" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : <EmptyState>V příštích 30 dnech nemáte naplánované žádné akce.</EmptyState>}</ResourceView>
+      </section>
+      <section aria-labelledby="shortcut-title">
+        <h2 id="shortcut-title">Zkratky</h2>
+        <ul className="navigation-list">
+          {shortcuts.map(({ href, label, icon, description }) => (
+            <li key={href}>
+              <Link href={href}>
+                <ClubIcon name={icon} />
+                <span><strong>{label}</strong>{description && <small>{description}</small>}</span>
+                <ClubIcon name="chevron" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }
 
 export function Dashboard() {
-  return <AccessGate><DashboardContent /></AccessGate>;
+  const { user, logout, refreshUser } = useAuth();
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+  if (!user) return <AccessGate>{null}</AccessGate>;
+
+  const signOut = async () => {
+    setLogoutError(null);
+    setSigningOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      setLogoutError(mapErrorToMessage(error));
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
+  return (
+    <AccessGate>
+    <section className="dashboard">
+      <div className="dashboard-heading">
+        <div><h1>Ahoj, {user.username}.</h1><p>{user.role === "ADMIN" ? "Administrátor" : user.accountType === "CHILD" ? "Dětský účet" : "Běžný uživatel"}</p></div>
+        <button type="button" className="button button-secondary" disabled={signingOut} onClick={() => void signOut()}>
+          {signingOut ? "Odhlašuji…" : "Odhlásit se"}
+        </button>
+      </div>
+      {logoutError && <div className="message message-error" role="alert"><p>{logoutError} Odhlášení nebylo potvrzeno.</p><button className="text-button" onClick={() => void refreshUser()}>Ověřit přihlášení</button></div>}
+      {user.profileState === "PENDING" ? (
+        <section className="detail-card next-step">
+          <h2>Doplňte osobní údaje</h2>
+          <p>Po doplnění profilu se zobrazí kalendář a další funkce dostupné pro váš účet.</p>
+          <Link className="button" href="/profile">Doplnit osobní údaje</Link>
+        </section>
+      ) : <DashboardOverview userId={user.id} />}
+    </section>
+    </AccessGate>
+  );
 }

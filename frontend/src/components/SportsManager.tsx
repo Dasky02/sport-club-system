@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "@/api/api";
 import { createSport, getSports, updateSport } from "@/api/club";
@@ -8,9 +9,11 @@ import type { PageResponse, SportResponse, SportUpdateRequest } from "@/api/type
 import { AccessGate } from "./AccessGate";
 import { FormField } from "./FormField";
 import { ResourceError } from "./ResourceError";
-import { AdminNav } from "./club/AdminNav";
+import { useAuth } from "@/context/AuthContext";
+import { AdminPageHeader } from "./club/AdminPageHeader";
+import { Pagination } from "./club/Resource";
 
-function NewSport({ onSaved }: { onSaved: () => void }) {
+function NewSport({ onSaved }: { onSaved: (sport: SportResponse) => void }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -29,9 +32,9 @@ function NewSport({ onSaved }: { onSaved: () => void }) {
     setError(null);
     setFieldErrors({});
     try {
-      await createSport({ code, name });
+      const sport = await createSport({ code, name });
       form.reset();
-      onSaved();
+      onSaved(sport);
     } catch (caught: unknown) {
       setError(caught);
       setFieldErrors(mapFieldErrors(caught, ["code", "name"]));
@@ -39,9 +42,10 @@ function NewSport({ onSaved }: { onSaved: () => void }) {
       setPending(false);
     }
   };
-  return <form className="detail-card club-form" onSubmit={submit} aria-busy={pending}>
+  return <form id="novy-sport" className="detail-card club-form admin-editor" onSubmit={submit} aria-busy={pending}>
     <h2>Přidat nový sport</h2>
-    <FormField name="code" label="Kód sportu" required maxLength={40} autoComplete="off" disabled={pending} hint="Například FOOTBALL nebo BASKETBALL. Nejvýše 40 znaků, začátek písmenem; bez diakritiky, povoleny číslice a podtržítko. Uloží se velkými písmeny a později se nemění." error={fieldErrors.code} />
+    <FormField name="code" label="Kód sportu" required maxLength={40} autoComplete="off" autoCapitalize="characters" spellCheck={false}
+      disabled={pending} hint="Například FOOTBALL. Až 40 znaků, začněte písmenem. Kód se po uložení nemění." error={fieldErrors.code} />
     <FormField name="name" label="Název sportu" required maxLength={100} disabled={pending} error={fieldErrors.name} />
     {error !== null && <p className="message message-error" role="alert">{Object.keys(fieldErrors).length ? "Zkontrolujte označená pole." : mapErrorToMessage(error)}</p>}
     <button className="button" type="submit" disabled={pending}>{pending ? "Přidávám…" : "Přidat sport"}</button>
@@ -93,10 +97,12 @@ function SportCard({ sport, onSaved }: { sport: SportResponse; onSaved: () => vo
 type SportsResource = { state: "loading" } | { state: "ready"; page: PageResponse<SportResponse> } | { state: "error"; error: unknown };
 
 function SportsContent() {
+  const { context } = useAuth();
   const [page, setPage] = useState(0);
   const [revision, setRevision] = useState(0);
   const [resource, setResource] = useState<SportsResource>({ state: "loading" });
   const [notice, setNotice] = useState<string | null>(null);
+  const [createdSport, setCreatedSport] = useState<SportResponse | null>(null);
   useEffect(() => {
     let active = true;
     void getSports(page, 20).then(
@@ -106,25 +112,31 @@ function SportsContent() {
     return () => { active = false; };
   }, [page, revision]);
   const reload = () => { setResource({ state: "loading" }); setRevision((value) => value + 1); };
-  const added = () => { setNotice("Sport byl přidán."); setPage(0); reload(); };
-  const saved = () => { setNotice("Změna sportu byla uložena."); reload(); };
-  const changePage = (nextPage: number) => { setResource({ state: "loading" }); setPage(nextPage); setNotice(null); };
+  const added = (sport: SportResponse) => { setCreatedSport(sport); setNotice("Sport byl přidán."); setPage(0); reload(); };
+  const saved = () => { setCreatedSport(null); setNotice("Změna sportu byla uložena."); reload(); };
+  const changePage = (nextPage: number) => { setResource({ state: "loading" }); setPage(nextPage); setNotice(null); setCreatedSport(null); };
   const denied = resource.state === "error" && resource.error instanceof ApiError && (resource.error.status === 401 || resource.error.status === 403);
 
   return <section className="club-page">
-    <AdminNav />
-    <p className="eyebrow">Administrace klubu</p><h1>Správa sportů</h1><p className="lead">Sporty jsou společné pro tuto instalaci. Přidání dalšího sportu nevyžaduje změnu kódu. Deaktivace zachová existující záznam.</p>
-    {notice && <p className="message message-success" role="status">{notice}</p>}
-    {denied ? <ResourceError error={resource.error} onRetry={reload} /> : <div className="club-two-columns sports-layout">
-      <NewSport onSaved={added} />
-      <div className="sports-list-section"><div className="list-heading"><h2>Evidované sporty</h2>{resource.state === "ready" && <span className="subtle">Celkem {resource.page.totalElements}</span>}</div>
+    <AdminPageHeader title="Správa sportů" actions={denied ? undefined : [{ id: "novy-sport", label: "Přidat sport" }]} />
+    {notice && <div className="message message-success" role="status">
+      <p>{notice}</p>
+      {createdSport && context?.capabilities.includes("MANAGE_TEAMS") && (
+        <Link className="text-button" href={{ pathname: "/admin/teams", query: { sport: createdSport.id }, hash: "novy-tym" }}>
+          Vytvořit tým pro {createdSport.name}
+        </Link>
+      )}
+    </div>}
+    {denied ? <ResourceError error={resource.error} onRetry={reload} /> : <div className="admin-split">
+      <div className="sports-list-section"><div className="list-heading"><h2>Evidované sporty</h2></div>
         {resource.state === "loading" && <p role="status">Načítám sporty…</p>}
         {resource.state === "error" && <ResourceError error={resource.error} onRetry={reload} />}
         {resource.state === "ready" && <>
           {resource.page.items.length ? <div className="sports-list">{resource.page.items.map((sport) => <SportCard key={sport.id} sport={sport} onSaved={saved} />)}</div> : <div className="empty-state"><h3>Zatím nejsou evidované žádné sporty.</h3><p>Přidejte první sport pomocí formuláře.</p></div>}
-          <nav className="pagination" aria-label="Stránkování sportů"><button className="button button-secondary button-small" disabled={page === 0} onClick={() => changePage(page - 1)}>Předchozí stránka</button><span>Stránka {page + 1}{resource.page.totalPages > 0 ? ` z ${resource.page.totalPages}` : ""}</span><button className="button button-secondary button-small" disabled={page + 1 >= resource.page.totalPages} onClick={() => changePage(page + 1)}>Další stránka</button></nav>
+          <Pagination page={page} result={resource.page} changePage={changePage} />
         </>}
       </div>
+      <NewSport onSaved={added} />
     </div>}
   </section>;
 }
