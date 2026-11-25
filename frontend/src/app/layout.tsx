@@ -8,7 +8,7 @@ import "./events.css";
 
 export const metadata: Metadata = {
   title: { default: "Sport Club System", template: "%s | Sport Club System" },
-  description: "Informační systém pro správu sportovního klubu. Technický základ ročníkového projektu.",
+  description: "Kalendář, soupisky, oznámení a správa sportovního klubu.",
   icons: { icon: "/club-mark.svg" },
 };
 
@@ -19,11 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <AuthProvider>
           <a className="skip-link" href="#main">Přejít na obsah</a>
           <SiteHeader />
-          <main id="main" className="page-shell">{children}</main>
-          <footer className="site-footer">
-            <span>Sport Club System</span>
-            <span>Ročníkový projekt · Správa sportovního klubu</span>
-          </footer>
+          <main id="main" className="page-shell" tabIndex={-1}>{children}</main>
         </AuthProvider>
       </body>
     </html>

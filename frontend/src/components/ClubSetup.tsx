@@ -67,7 +67,7 @@ function CompleteProfileSetup() {
   };
 
   return <section className="club-page">
-    <p className="eyebrow">Jednorázové nastavení</p><h1>Nastavení klubu</h1>
+    <h1>Nastavení klubu</h1>
     {resource.state === "loading" && <p role="status">Načítám stav nastavení…</p>}
     {resource.state === "error" && <ResourceError error={resource.error} onRetry={retry} />}
     {errorMessage && <p className="message message-error" role="alert">{errorMessage}</p>}

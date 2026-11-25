@@ -2,6 +2,14 @@
 
 **Dostupné E0 + P1–P5:** účty a osoby, setup, sporty, sezóny, týmy, hráči, členství, rodiče, Moje děti, omezený CHILD, soutěžní konfigurace, kalendář, dostupnost, nominace, docházka a sportovní oznámení. Výsledky, statistiky, pořadí, finance, splatnostní výzvy a konverzace patří do P6–P9. Skutečné kontroly uvádí [ověření](verification.md).
 
+## Orientace v portálu
+
+Po přihlášení otevřete **Přehled**. S dokončeným profilem uvidíte nejbližší akce a odkazy do částí dostupných vašemu účtu. **Osobní údaje** otevřete přes své uživatelské jméno. Na telefonu rozbalte navigaci tlačítkem **Menu**.
+
+**Kalendář** na širší obrazovce zobrazuje měsíční mřížku. Na úzké obrazovce řadí akce podle data. Vybraný měsíc a filtry zůstávají v adrese stránky a lze se k nim vrátit tlačítkem Zpět v prohlížeči. Správce otevře jednotlivé oblasti přes **Administraci**.
+
+Pro vyzkoušení ve vlastní databázi použijte [návod k lokální ukázce](demo-setup.md).
+
 ## Formáty zápasu — P4
 
 Stránka **Formáty zápasu** (`/admin/match-formats`) je dostupná dokončenému aktivnímu STANDARD ADMIN přes správní navigaci. Vyžaduje schéma po Flyway V5. Běžný uživatel, rodič, trenér bez ADMIN ani CHILD k této správě přístup nemají. Výsledky lokálních kontrol uvádí [ověření](verification.md).
@@ -99,7 +107,7 @@ Přihlášený hráč je účet propojený přes stejnou osobu s vlastním hrá�
 
 Přihlaste se vlastním dětským loginem. **Osobní údaje** jsou jen ke čtení, vlastní hráčský profil obsahuje povolenou členskou historii a **Týmy** dnešní vlastní soupisky. U spoluhráčů se zobrazují pouze jména a intervaly; cizí profil nebo sourozenec tím dostupný není.
 
-Dítě nespravuje účty, rodiče, vlastní typ/roli/osobu nebo datum narození. Nemá **Nastavení klubu**, **Administrace**, **Moje děti** ani finanční přehled. Zákaz předpisů, plateb, součtů, exportů a finančních oznámení včetně počtů platí i pro přímé API cesty. Jde o předběžnou bezpečnostní hranici; příspěvky a schránka ještě nejsou dostupné ani jako dokončená rodičovská agenda. Sportovní kalendář, dostupnost a komunikace jsou také plán.
+Dítě vidí vlastní sportovní akce a oznámení. Dostupnost může vyplnit za sebe. Zákaz správy účtů, osob, rodičovských vazeb a všech finančních údajů včetně oznámení a počtů platí i při přímém volání API.
 
 Po zákazu účtu nebo ztrátě posledního aktivního rodiče se znovu nepřihlašujte cizími údaji. Rodič s ADMIN ověří vazbu a samostatnou aktivaci; po ní použijte nové přihlášení.
 
@@ -120,9 +128,9 @@ Stačí jeden STANDARD ADMIN, který si přiřadí trenérství, založí souča
 
 ### Administrátor a trenér
 
-1. V **Kalendáři** zvolte **Vytvořit akci**, vyberte sezónu a typ. U tréninku nebo jiné akce označte zúčastněné klubové týmy. U zápasu vyberte domácí, hosty a formát. Soutěžní zápas převezme formát ročníku a obě strany v něm musí být přihlášené.
-2. Vyplňte termín v pražském čase, místo a případně uzávěrku dostupnosti. Prázdná uzávěrka znamená začátek akce. Uložte koncept a zvolte **Zveřejnit akci**. Aplikace přidá hráče se členstvím platným v den akce. Aktuální trenér všech zúčastněných klubových týmů může akci zveřejnit, měnit a zrušit.
-3. V sekci **Nominace** uložte návrhy jednotlivých hráčů a potom zvolte **Zveřejnit nominaci**. Hráči a rodiče uvidí poslední zveřejněné hodnoty a dotčeným příjemcům přijde oznámení. Pro další změnu návrh znovu uložte a zveřejněte.
+1. Založte sport a klubový tým. V **Týmy a členství** zařaďte tým do otevřené sezóny. Poté použijte **Naplánovat akci pro tým** nebo otevřete **Kalendář → Vytvořit akci**. U zápasu potřebujete dva týmy stejného sportu a formát. Pro soutěžní zápas vyberte ročník, ve kterém jsou přihlášené obě strany.
+2. Vyplňte termín v českém místním čase, místo a případně uzávěrku dostupnosti. Prázdná uzávěrka znamená začátek akce. Uložte koncept a zvolte **Zveřejnit akci**. Aplikace přidá hráče se členstvím platným v den akce. Členství uložíte i přes **Hráči a osoby → Přiřadit do týmu**. Aktuální trenér všech zúčastněných klubových týmů může akci zveřejnit, měnit a zrušit.
+3. U zápasu v sekci **Nominace** uložte návrhy jednotlivých hráčů a potom zvolte **Zveřejnit nominaci**. Hráči a rodiče uvidí publikované hodnoty a dotčeným příjemcům přijde oznámení. U tréninku a jiné klubové akce otevřete formulář u hráče volbou **Přidat nominaci**. Dříve zapsané nominace zůstávají viditelné.
 4. Od začátku akce vyplňte **Docházku**. U zápasu lze zvlášť evidovat nastoupení. Po konci lze akci označit za dokončenou. Její pozdější opravu zapisuje administrátor s důvodem.
 5. Budoucí účast může správce nebo příslušný trenér vyřadit s důvodem. Dalšího hráče s odpovídajícím členstvím přidáte přes **Přidat účastníka**. Obnovení vyřazené účasti vyžaduje administrátora a platné členství. Pokud změna členství koliduje s budoucí akcí, nejprve vyřešte účast na této akci.
 

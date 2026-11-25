@@ -58,7 +58,7 @@ function OnboardingForm() {
   };
 
   return <section className="club-page">
-    <div className="section-heading"><p className="eyebrow">Dokončení účtu</p><h1>Vaše osobní údaje</h1><p className="lead">Doplňte skutečné údaje, se kterými bude účet propojený. Tento krok nevytváří hráčský profil, členství ani rodičovskou vazbu.</p></div>
+    <div className="section-heading"><h1>Vaše osobní údaje</h1><p className="lead">Doplňte skutečné údaje, se kterými bude účet propojený. Tento krok nevytváří hráčský profil, členství ani rodičovskou vazbu.</p></div>
     <div className="club-two-columns">
       <form className="detail-card club-form" onSubmit={submit} aria-busy={pending}>
         <h2>Dokončit profil</h2>
@@ -73,7 +73,7 @@ function OnboardingForm() {
         <button className="button" type="submit" disabled={pending}>{pending ? "Ukládám…" : "Uložit osobní údaje"}</button>
         {error !== null && <button className="text-button" type="button" onClick={() => void refreshUser()}>Ověřit aktuální profil</button>}
       </form>
-      <aside className="detail-card planned"><p className="eyebrow">Propojení s osobou</p><h2>Máte už v klubu záznam?</h2><p>Pokud již klub eviduje vaši osobu, před vyplněním požádejte administrátora o ověřené propojení účtu. Shodné jméno ani e-mail osoby automaticky neslučují.</p><p>Uložené propojení v této etapě nelze samostatně měnit.</p></aside>
+      <aside className="detail-card planned"><h2>Máte už v klubu záznam?</h2><p>Pokud již klub eviduje vaši osobu, před vyplněním požádejte administrátora o ověřené propojení účtu. Shodné jméno ani e-mail osoby automaticky neslučují.</p><p>Uložené propojení v této etapě nelze samostatně měnit.</p></aside>
     </div>
   </section>;
 }
@@ -95,7 +95,7 @@ function ExistingPerson() {
   const retry = () => { setResource({ state: "loading" }); setRevision((value) => value + 1); };
 
   return <section className="club-page">
-    <p className="eyebrow">Osobní údaje</p><h1>Váš profil je dokončený.</h1>
+    <h1>Váš profil je dokončený.</h1>
     {resource.state === "loading" && <p role="status">Načítám osobní údaje…</p>}
     {resource.state === "error" && <ResourceError error={resource.error} onRetry={retry} />}
     {resource.state === "ready" && <article className="detail-card profile-details"><h2>{resource.person.firstName} {resource.person.lastName}</h2><dl>

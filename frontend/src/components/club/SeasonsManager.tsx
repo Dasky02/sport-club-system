@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { archiveSeason, createSeason, getSeasons, updateSeason, type SeasonRequest, type SeasonResponse } from "@/api/teams";
 import { mapFieldErrors } from "@/api/errorMapper";
 import { AccessGate } from "../AccessGate";
 import { FormField } from "../FormField";
-import { AdminNav } from "./AdminNav";
 import { FormError } from "./Fields";
 import { EmptyState, Pagination, ResourceView, useResource } from "./Resource";
+import { AdminPageHeader } from "./AdminPageHeader";
 
 function SeasonForm({ initial, onSaved, onCancel }: { initial?: SeasonResponse; onSaved: () => void; onCancel?: () => void }) {
   const [pending, setPending] = useState(false);
@@ -69,8 +70,15 @@ function SeasonsContent() {
   const { resource, reload } = useResource(load);
   const [notice, setNotice] = useState<string | null>(null);
   const saved = () => { setNotice("Sezóna byla uložena."); reload(); };
-  return <section className="club-page"><AdminNav /><p className="eyebrow">Administrace klubu</p><h1>Správa sezón</h1><p className="lead">Sezóny vymezují intervaly týmů a členství. Archivace historii zachová.</p>{notice && <p className="message message-success" role="status">{notice}</p>}
-    <div className="club-two-columns"><div className="detail-card"><SeasonForm onSaved={() => { setPage(0); saved(); }} /></div><ResourceView resource={resource} reload={reload}>{(result) => <div className="club-stack">{result.items.length ? result.items.map((season) => <SeasonCard key={season.id} season={season} onSaved={saved} />) : <EmptyState>Zatím nejsou vytvořené žádné sezóny.</EmptyState>}<Pagination page={page} result={result} changePage={setPage} /></div>}</ResourceView></div>
+  return <section className="club-page">
+    <AdminPageHeader title="Správa sezón" actions={[{ id: "nova-sezona", label: "Nová sezóna" }]} />
+    {notice && <div className="message message-success" role="status"><p>{notice}</p><Link className="text-button" href="/admin/teams#zaradit-tym">Přejít k zařazení týmu</Link></div>}
+    <div className="admin-split">
+      <section className="club-stack" aria-label="Evidované sezóny"><h2>Evidované sezóny</h2>
+        <ResourceView resource={resource} reload={reload}>{(result) => <>{result.items.length ? result.items.map((season) => <SeasonCard key={season.id} season={season} onSaved={saved} />) : <EmptyState>Zatím nejsou vytvořené žádné sezóny.</EmptyState>}<Pagination page={page} result={result} changePage={setPage} /></>}</ResourceView>
+      </section>
+      <div id="nova-sezona" className="detail-card admin-editor"><SeasonForm onSaved={() => { setPage(0); saved(); }} /></div>
+    </div>
   </section>;
 }
 
