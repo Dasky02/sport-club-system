@@ -20,9 +20,9 @@ P5 přidává **kalendář** (`/calendar`) tréninků, zápasů a klubových akc
 - Python 3 pro týmové pomocné skripty.
 - Volné porty 5432 (lokální DB), 8080 (API), 3000 (frontend).
 
-Backend používá Spring Boot 4.0.3 a springdoc 3.0.3 podle [oficiální kompatibility](https://springdoc.org/#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot). Přesné verze frontendových závislostí jsou v `frontend/package.json` a `package-lock.json`. Běžné kontroly nevyžadují žádný token ani produkční secrets.
+Backend používá Spring Boot 4.2.0 a springdoc 3.2.1 podle [oficiální kompatibility](https://springdoc.org/#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot). Přesné verze frontendových závislostí jsou v `frontend/package.json` a `package-lock.json`. Běžné kontroly nevyžadují žádný token ani produkční secrets.
 
-Verze testovacího Testcontainers vychází z dependency managementu Spring Boot (nyní 2.0.3); projekt ji samostatně nepřepisuje. JUnit a PostgreSQL moduly používají názvy `testcontainers-junit-jupiter` a `testcontainers-postgresql` řady 2.x. Kompatibilitu Docker API řeší knihovna, běžný testovací běh nepotřebuje ruční `api.version` ani `JAVA_TOOL_OPTIONS` workaround. Při změně Spring Boot ověřte celou backendovou sadu včetně PostgreSQL a migračních testů.
+Verze testovacího Testcontainers vychází z dependency managementu Spring Boot (nyní 2.0.5); projekt ji samostatně nepřepisuje. JUnit a PostgreSQL moduly používají názvy `testcontainers-junit-jupiter` a `testcontainers-postgresql` řady 2.x. Kompatibilitu Docker API řeší knihovna, běžný testovací běh nepotřebuje ruční `api.version` ani `JAVA_TOOL_OPTIONS` workaround. Při změně Spring Boot ověřte celou backendovou sadu včetně PostgreSQL a migračních testů.
 
 ## Od čistého klonu: lokální vývoj
 
