@@ -109,6 +109,7 @@ function ParticipantCard({ event, p, team, admin, now, busy, run }: { event: Clu
   const canAnswer = published && p.canAnswer && now <= deadline;
   const correction = !canAnswer && admin && (published || event.status === "COMPLETED");
   const active = !p.withdrawn;
+  const canNominate = active && event.canManage && published && !started;
   const showNomination = event.type === "MATCH" || p.nomination !== null || p.publishedNomination !== null;
   return <article className="detail-card event-participant">
     <header className="event-heading"><div><h3>{p.name}</h3><p>{team}</p></div>{p.withdrawn && <span className="pill">Vyřazen z akce</span>}</header>
@@ -122,8 +123,12 @@ function ParticipantCard({ event, p, team, admin, now, busy, run }: { event: Clu
       {showNomination && <section aria-label={`Nominace hráče ${p.name}`}>
         <h4>Nominace</h4>
         <p>{p.publishedNomination ? nominationLabels[p.publishedNomination] : "Bez zveřejněné nominace"}</p>
-        {active && event.canManage && published && !started && <NominationForm event={event} p={p} busy={busy} run={run} />}
+        {canNominate && <NominationForm event={event} p={p} busy={busy} run={run} />}
       </section>}
+      {!showNomination && canNominate && <details className="event-expand">
+        <summary>Přidat nominaci</summary>
+        <NominationForm event={event} p={p} busy={busy} run={run} />
+      </details>}
       <section aria-label={`Docházka hráče ${p.name}`}>
         <h4>Docházka</h4>
         <p>{p.attendance ? attendanceLabels[p.attendance] : notRecorded}</p>

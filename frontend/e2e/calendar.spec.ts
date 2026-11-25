@@ -99,6 +99,13 @@ test("P5: navigace, plánování tréninku, kalendář a přečtení oznámení"
   await expect(page.getByText("Akce zveřejněna.", { exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: /Dostupnost hráče Testovací Správce/ })).toBeVisible();
   await expect(page.getByRole("region", { name: /Nominace hráče/ })).toHaveCount(0);
+  const saveNomination = page.getByRole("button", { name: "Uložit návrh nominace" });
+  await expect(saveNomination).toBeHidden();
+  await page.getByText("Přidat nominaci", { exact: true }).click();
+  await page.getByLabel("Návrh nominace").selectOption("SELECTED");
+  await saveNomination.click();
+  await expect(page.getByText("Návrh nominace uložen.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Zveřejnit nominaci" })).toBeVisible();
 
   const month = clubDateKey(startsAt).slice(0, 7);
   await page.goto(`/calendar?month=${month}`);
